@@ -37,7 +37,7 @@
       command: "apt-mark hold pve-kernel-6.5.13-3-pve"
 
     - name: Hold pve-kernel package
-      command: "apt-mark hold p
+      command: "apt-mark hold p"
       
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
