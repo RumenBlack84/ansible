@@ -151,12 +151,13 @@ EOF
 
   if [ "${disable_nag:-false}" = true ]; then
     msg_info "Disabling subscription nag"
-    echo "DPkg::Post-Invoke { \"dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\\.js$'; if [ \$? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\\.status.*{/{s/\\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi\"; };" >/etc/apt/apt.conf.d/no-nag-script
-    echo "DPkg::Post-Invoke { \"dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\\.js$'; if [ \$? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\\.status.*{/{s/\\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi\"; };" >/etc/apt/apt.conf.d/no-nag-script
-    if [ -f /etc/apt/apt.conf.d/no-nag-script ]; then
-      msg_ok "Subscription nag script written"
-    else
-      msg_error "Failed to write subscription nag script"
+    if [[ ! -f /etc/apt/apt.conf.d/no-nag-script ]]; then
+      echo "DPkg::Post-Invoke { \"dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\\.js$'; if [ \$? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\\.status.*{/{s/\\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi\"; };" >/etc/apt/apt.conf.d/no-nag-script
+      if [ -f /etc/apt/apt.conf.d/no-nag-script ]; then
+        msg_ok "Subscription nag script written"
+      else
+        msg_error "Failed to write subscription nag script"
+      fi
     fi
     msg_info "Reinstalling proxmox-widget-toolkit"
     apt --reinstall install proxmox-widget-toolkit &>/dev/null
