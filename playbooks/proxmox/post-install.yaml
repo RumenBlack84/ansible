@@ -11,7 +11,7 @@
     - name: Run the Proxmox VE post install script with arguments
       environment:
         TERM: xterm
-      command: "bash /tmp/unattended-pve-post-install.sh -y -s -e -c -p -u -r"
+      command: "bash /tmp/unattended-pve-post-install.sh -y -s -e -c -p -u"
       args:
         creates: /tmp/unattended-pve-post-install.sh.completed
 
