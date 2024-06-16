@@ -34,7 +34,7 @@
         update_cache: yes
 
     - name: Hold specific kernel version
-      command: "apt-mark hold pve-kernel-6.5.13-3-pve"
+      command: "apt-mark hold proxmox-kernel-6.5.13-3-pve"
 
     - name: Hold pve-kernel package
       command: "apt-mark hold p"
