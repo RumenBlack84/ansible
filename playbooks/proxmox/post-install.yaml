@@ -1,6 +1,6 @@
 ---
 - name: Run Proxmox VE Post Install Script
-  hosts: "{{ target_hosts }}"
+  hosts: all
   tasks:
     - name: Download the Proxmox VE post install script
       get_url:
