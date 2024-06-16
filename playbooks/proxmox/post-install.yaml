@@ -40,7 +40,7 @@
       command: "apt-mark hold proxmox-default-kernel"
 
     - name: Pin specific kernel version in Proxmox
-      command: "proxmox-boot-tool kernel pin 6.5.13-3-pve"   
+      shell: "yes | proxmox-boot-tool kernel pin 6.5.13-3-pve"   
       
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
@@ -63,4 +63,5 @@
       debug:
         msg: "EFI partitions: {{ efi_partitions }}"
 
-
+    - name: Refresh Boot
+      command: "proxmox-boot-tool refresh"
