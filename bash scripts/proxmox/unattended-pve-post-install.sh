@@ -49,7 +49,7 @@ msg_error() {
 
 # Function to print usage
 usage() {
-  echo "Usage: $0 [-y] [-s] [-e] [-p] [-c] [-t] [-u] [-r]"
+  echo "Usage: $0 [-y] [-s] [-e] [-p] [-c] [-t] [-u] [-r] [-n]"
   echo "  -y    Run in non-interactive mode"
   echo "  -s    Correct Proxmox VE Sources"
   echo "  -e    Disable pve-enterprise repository"
@@ -58,12 +58,13 @@ usage() {
   echo "  -t    Add pvetest repository"
   echo "  -u    Update Proxmox VE"
   echo "  -r    Reboot Proxmox VE"
+  echo "  -n    Disable subscription nag"
   exit 1
 }
 
 # Function to handle script arguments
 handle_args() {
-  while getopts ":ysecpctur" opt; do
+  while getopts ":ysecpcturn" opt; do
     case $opt in
       y)
         non_interactive=true
@@ -88,6 +89,9 @@ handle_args() {
         ;;
       r)
         reboot_proxmox=true
+        ;;
+      n)
+        disable_nag=true
         ;;
       \?)
         usage
@@ -143,6 +147,13 @@ EOF
 # deb http://download.proxmox.com/debian/pve bookworm pvetest
 EOF
     msg_ok "Added 'pvetest' repository"
+  fi
+
+  if [ "${disable_nag:-false}" = true ]; then
+    msg_info "Disabling subscription nag"
+    echo "DPkg::Post-Invoke { \"dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\\.js$'; if [ \$? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\\.status.*{/{s/\\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi\"; };" >/etc/apt/apt.conf.d/no-nag-script
+    apt --reinstall install proxmox-widget-toolkit &>/dev/null
+    msg_ok "Disabled subscription nag (Delete browser cache)"
   fi
 
   if [ "${update_proxmox:-false}" = true ]; then
