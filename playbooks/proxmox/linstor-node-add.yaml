@@ -58,6 +58,9 @@
 
     - name: Set immutable attribute on /var/lib/linstor
       command: chattr +i /var/lib/linstor
+#Create required directories and pull down configuration files from github
+#TODO
+
 #Install required linstor Packages
     - name: Install drbd-dkms
       apt:
@@ -87,6 +90,12 @@
       apt:
         name: drbd-reactor
         state: present
+#Enable and start required systemd services
+    - name: Enable and start linstor-satellite service
+      systemd:
+        name: linstor-satellite
+        enabled: yes
+        state: started
 #    - name: 
 #      apt:
 #        name: 
