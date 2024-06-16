@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# https://raw.githubusercontent.com/RumenBlack84/ansible/main/unattended-pve-post-install.sh
-# Blatantly forked and refactored by Brian Grant (and chatgpt) to support non-interactive install for use in ansible automation
-
 # Copyright (c) 2021-2024 tteck
 # Author: tteck (tteckster)
 # License: MIT
@@ -49,7 +46,7 @@ msg_error() {
 
 # Function to print usage
 usage() {
-  echo "Usage: $0 [-y] [-s] [-e] [-p] [-c] [-t] [-u] [-r] [-n]"
+  echo "Usage: $0 [-y] [-s] [-e] [-p] [-c] [-t] [-u] [-n] [-r]"
   echo "  -y    Run in non-interactive mode"
   echo "  -s    Correct Proxmox VE Sources"
   echo "  -e    Disable pve-enterprise repository"
@@ -57,14 +54,14 @@ usage() {
   echo "  -c    Correct ceph package repositories"
   echo "  -t    Add pvetest repository"
   echo "  -u    Update Proxmox VE"
+  echo "  -n    Disable Subscription Nag"
   echo "  -r    Reboot Proxmox VE"
-  echo "  -n    Disable subscription nag"
   exit 1
 }
 
 # Function to handle script arguments
 handle_args() {
-  while getopts ":ysecpcturn" opt; do
+  while getopts ":ysecpctur" opt; do
     case $opt in
       y)
         non_interactive=true
@@ -87,11 +84,11 @@ handle_args() {
       u)
         update_proxmox=true
         ;;
+      n)
+        remove_nag=true
+        ;;		
       r)
         reboot_proxmox=true
-        ;;
-      n)
-        disable_nag=true
         ;;
       \?)
         usage
@@ -149,17 +146,18 @@ EOF
     msg_ok "Added 'pvetest' repository"
   fi
 
-  if [ "${disable_nag:-false}" = true ]; then
-      echo "DPkg::Post-Invoke { \"dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\.js$'; if [ \$? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\.status.*{/{s/\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi\"; };" >/etc/apt/apt.conf.d/no-nag-script
-      apt --reinstall install proxmox-widget-toolkit &>/dev/null
-fi
-
   if [ "${update_proxmox:-false}" = true ]; then
     msg_info "Updating Proxmox VE (Patience)"
     apt-get update &>/dev/null
     apt-get -y dist-upgrade &>/dev/null
     msg_ok "Updated Proxmox VE"
   fi
+  
+  if [ "${remove_nag:-false}" = true ]; then
+    echo "DPkg::Post-Invoke { \"dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\.js$'; if [ \$? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\.status.*{/{s/\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi\"; };" > /etc/apt/apt.conf.d/no-nag-script
+    apt --reinstall install proxmox-widget-toolkit &>/dev/null
+fi
+
 
   if [ "${reboot_proxmox:-false}" = true ]; then
     msg_info "Rebooting Proxmox VE"
