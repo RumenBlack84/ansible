@@ -1,1 +1,20 @@
+---
+- name: Run Proxmox VE Post Install Script
+  hosts: "{{ target_hosts }}"
+  tasks:
+    - name: Download the Proxmox VE post install script
+      get_url:
+        url: https://raw.githubusercontent.com/RumenBlack84/ansible/main/bash%20scripts/proxmox/unattended-pve-post-install.sh
+        dest: /tmp/unattended-pve-post-install.sh
+        mode: '0755'
+
+    - name: Run the Proxmox VE post install script with arguments
+      command: /tmp/unattended-pve-post-install.sh -y -s -e -p -u -r
+      args:
+        creates: /tmp/unattended-pve-post-install.sh.completed
+
+    - name: Mark script as completed
+      file:
+        path: /tmp/unattended-pve-post-install.sh.completed
+        state: touch
 
