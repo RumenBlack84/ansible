@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+#https://raw.githubusercontent.com/RumenBlack84/ansible/main/unattended-pve-post-install.sh
 #Blatantly forked and refactored by Brian Grant (and chatgpt) to support non-interative install for use in ansible automation
 
 # Copyright (c) 2021-2024 tteck
