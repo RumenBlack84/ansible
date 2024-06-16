@@ -1,5 +1,5 @@
 ---
-- name: Run Proxmox VE Post Install Script
+- name: Run Proxmox VE Post Install Process
   hosts: all
   become: yes
   tasks:
