@@ -160,7 +160,7 @@ EOF
       fi
     fi
     msg_info "Reinstalling proxmox-widget-toolkit"
-    apt --reinstall install proxmox-widget-toolkit &>/dev/null
+    apt-get install --reinstall proxmox-widget-toolkit &>/dev/null
     if dpkg -s proxmox-widget-toolkit | grep -q "Status: install ok installed"; then
       msg_ok "Reinstalled proxmox-widget-toolkit"
       msg_ok "Disabled subscription nag (Delete browser cache)"
