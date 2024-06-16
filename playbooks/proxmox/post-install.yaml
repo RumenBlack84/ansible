@@ -1,6 +1,7 @@
 ---
-- name: Run Proxmox VE Post Install Script  
+- name: Run Proxmox VE Post Install Script
   hosts: all
+  become: yes
   tasks:
     - name: Download the Proxmox VE post install script
       get_url:
@@ -19,7 +20,26 @@
       file:
         path: /tmp/unattended-pve-post-install.sh.completed
         state: touch
-#changing bootloader to use grub instead of systemd
+    # Installing and pinning Kernel to 6.5.13-3-pve so as to not break intel igpu sr-iov on pve1 & pve2
+    - name: Install specific kernel version
+      apt:
+        name: pve-kernel-6.5.13-3-pve
+        state: present
+        update_cache: yes
+
+    - name: Install specific kernel headers
+      apt:
+        name: pve-headers-6.5.13-3-pve
+        state: present
+        update_cache: yes
+
+    - name: Hold specific kernel version
+      command: "apt-mark hold pve-kernel-6.5.13-3-pve"
+
+    - name: Hold pve-kernel package
+      command: "apt-mark hold p
+      
+    # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
       command: blkid -t TYPE=vfat -o device
       register: efi_partition_output
@@ -29,7 +49,7 @@
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
 
     - name: Set Grub kernel parameters to enable IOMMU
-      command: "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"' /etc/default/grub"
+      command: "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\GRUB_CMDLINE_LINUX_DEFAULT=\"quiet intel_iommu=on iommu=pt\"' /etc/default/grub"
 
     - name: Initialize Proxmox boot tool on each EFI partition
       command: "proxmox-boot-tool init {{ item }} grub"
@@ -39,27 +59,5 @@
     - name: Print EFI partitions for verification
       debug:
         msg: "EFI partitions: {{ efi_partitions }}"
-#Installing and pinning Kernel to 6.5.13-3-pve so as to not break intel igpu sr-iov on pve1 & pve2
-    - name: Install specific kernel version
-      apt:
-        name: pve-kernel-6.5.13-3-pve
-        state: present
-        update_cache: yes
 
-    - name: Install specific kernel headers
-      apt:
-        name: proxmox-headers-6.5.13-3-pve 
-        state: present
-        update_cache: yes
 
-    - name: Hold specific kernel version
-      command: "apt-mark hold pve-kernel-6.5.13-3-pve"
-
-    - name: Hold pve-kernel package
-      command: "apt-mark hold pve-kernel"
-
-    - name: Pin specific kernel version in Proxmox
-      command: "proxmox-boot-tool kernel pin 6.5.13-3-pve"
-
-    - name: Refresh Proxmox boot tool
-      command: "proxmox-boot-tool refresh"
