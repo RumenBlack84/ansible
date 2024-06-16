@@ -64,7 +64,7 @@
         group: root
         mode: '0644'
 
-    - name: Reinstall proxmox-widget-toolkit after creating no-nag-script1
+    - name: Reinstall proxmox-widget-toolkit after creating no-nag-script
       apt:
         name: proxmox-widget-toolkit
         state: reinstalled
