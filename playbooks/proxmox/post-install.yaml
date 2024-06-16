@@ -9,7 +9,7 @@
         mode: '0755'
 
     - name: Run the Proxmox VE post install script with arguments
-      command: /tmp/unattended-pve-post-install.sh -y -s -e -p -u -r
+      command: /tmp/unattended-pve-post-install.sh -y -s -e -p -u
       args:
         creates: /tmp/unattended-pve-post-install.sh.completed
 
