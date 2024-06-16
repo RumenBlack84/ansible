@@ -15,8 +15,80 @@
       environment:
         TERM: xterm
       command: "gpg --yes -o /etc/apt/trusted.gpg.d/linbit-keyring.gpg --dearmor /tmp/package-signing-pubkey.asc"        
+    
+    - name: Overwrite linbit.list with LINBIT repository entry
+      copy:
+        content: |
+          deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] http://packages.linbit.com/public/ proxmox-8 drbd-9
+        dest: /etc/apt/sources.list.d/linbit.list
+        owner: root
+        group: root
+        mode: '0644'
+#Update apt cache with our nice new repo
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+#Create mount service for linstor database in case this node ever become active
+#As per https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
+    - name: Create var-lib-linstor.mount file
+      copy:
+        content: |
+          [Unit]
+          Description=Filesystem for the LINSTOR controller
 
-    - name: Add Linstor Repo for PVE Version 8
-      environment:
-        TERM: xterm
-      command: "PVERS=8 && echo "deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] http://packages.linbit.com/public/ proxmox-$PVERS drbd-9" > /etc/apt/sources.list.d/linbit.list"
+          [Mount]
+          # you can use the minor like /dev/drbdX or the udev symlink
+          What=/dev/drbd/by-res/linstor_db/0
+          Where=/var/lib/linstor
+        dest: /etc/systemd/system/var-lib-linstor.mount
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reload
+    
+    - name: Create /var/lib/linstor directory
+      file:
+        path: /var/lib/linstor
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Set immutable attribute on /var/lib/linstor
+      command: chattr +i /var/lib/linstor
+#Install required linstor Packages
+    - name: Install drbd-dkms
+      apt:
+        name: drbd-dkms
+        state: present
+    - name: Install drbd-utils
+      apt:
+        name: drbd-utils
+        state: present
+    - name: Install linstor-controller
+      apt:
+        name: linstor-controller
+        state: present
+    - name: Install linstor-satellite
+      apt:
+        name: linstor-satellite
+        state: present
+    - name: Install linstor-client
+      apt:
+        name: linstor-client
+        state: present
+    - name: Install linstor-proxmox
+      apt:
+        name: linstor-proxmox
+        state: present
+    - name: Install drbd-reactor
+      apt:
+        name: drbd-reactor
+        state: present
+#    - name: 
+#      apt:
+#        name: 
+#        state: present
+        
