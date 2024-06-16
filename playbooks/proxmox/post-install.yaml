@@ -19,22 +19,47 @@
       file:
         path: /tmp/unattended-pve-post-install.sh.completed
         state: touch
-#Installing linstor public repos as per the folliwng documentation
-#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install    
-    - name: Download Linstor Public Repo Key
-      get_url:
-        url: https://packages.linbit.com/package-signing-pubkey.asc"
-        dest: /tmp/package-signing-pubkey.asc
-        mode: '0755'
-
-    - name: Import Linstor Repo key
-      environment:
-        TERM: xterm
-      command: "gpg --yes -o /etc/apt/trusted.gpg.d/linbit-keyring.gpg --dearmor /tmp/package-signing-pubkey.asc"        
-
-    - name: Add Linstor Repo for PVE Version 8
-      environment:
-        TERM: xterm
-      command: "PVERS=8 && echo "deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] http://packages.linbit.com/public/ proxmox-$PVERS drbd-9" > /etc/apt/sources.list.d/linbit.list"
 #changing bootloader to use grub instead of systemd
+    - name: Find EFI partitions
+      command: blkid -t TYPE=vfat -o device
+      register: efi_partition_output
+
+    - name: Set EFI partitions as a list
+      set_fact:
+        efi_partitions: "{{ efi_partition_output.stdout_lines }}"
+
+    - name: Set Grub kernel parameters to enable IOMMU
+      command: "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"' /etc/default/grub"
+
+    - name: Initialize Proxmox boot tool on each EFI partition
+      command: "proxmox-boot-tool init {{ item }} grub"
+      loop: "{{ efi_partitions }}"
+      when: efi_partitions is defined
+
+    - name: Print EFI partitions for verification
+      debug:
+        msg: "EFI partitions: {{ efi_partitions }}"
 #Installing and pinning Kernel to 6.5.13-3-pve so as to not break intel igpu sr-iov on pve1 & pve2
+    - name: Install specific kernel version
+      apt:
+        name: pve-kernel-6.5.13-3-pve
+        state: present
+        update_cache: yes
+
+    - name: Install specific kernel headers
+      apt:
+        name: proxmox-headers-6.5.13-3-pve 
+        state: present
+        update_cache: yes
+
+    - name: Hold specific kernel version
+      command: "apt-mark hold pve-kernel-6.5.13-3-pve"
+
+    - name: Hold pve-kernel package
+      command: "apt-mark hold pve-kernel"
+
+    - name: Pin specific kernel version in Proxmox
+      command: "proxmox-boot-tool kernel pin 6.5.13-3-pve"
+
+    - name: Refresh Proxmox boot tool
+      command: "proxmox-boot-tool refresh"
