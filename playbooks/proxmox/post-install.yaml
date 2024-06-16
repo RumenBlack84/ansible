@@ -65,9 +65,7 @@
         mode: '0644'
 
     - name: Reinstall proxmox-widget-toolkit after creating no-nag-script
-      apt:
-        name: proxmox-widget-toolkit
-        state: reinstalled
+      shell: "apt-get install --reinstall -y proxmox-widget-toolkit"
     #Update now that repos are fixed    
     - name: Update apt cache
       apt:
