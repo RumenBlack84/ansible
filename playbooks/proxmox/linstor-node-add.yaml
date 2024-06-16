@@ -3,6 +3,7 @@
   hosts: all
   become: yes
   tasks:
+#Still a WIP, dont use
 #Installing linstor public repos as per the folliwng documentation
 #https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install    
     - name: Download Linstor Public Repo Key
