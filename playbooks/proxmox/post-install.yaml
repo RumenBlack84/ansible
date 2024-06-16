@@ -38,6 +38,9 @@
 
     - name: Hold pve-kernel package
       command: "apt-mark hold proxmox-default-kernel"
+
+    - name: Pin specific kernel version in Proxmox
+      command: "proxmox-boot-tool kernel pin 6.5.13-3-pve"   
       
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
