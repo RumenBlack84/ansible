@@ -49,7 +49,7 @@
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
 
     - name: Set Grub kernel parameters to enable IOMMU
-      command: "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\GRUB_CMDLINE_LINUX_DEFAULT=\"quiet intel_iommu=on iommu=pt\"' /etc/default/grub"
+      command: 'sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\GRUB_CMDLINE_LINUX_DEFAULT=\"quiet intel_iommu=on iommu=pt\"' /etc/default/grub'
 
     - name: Initialize Proxmox boot tool on each EFI partition
       command: "proxmox-boot-tool init {{ item }} grub"
