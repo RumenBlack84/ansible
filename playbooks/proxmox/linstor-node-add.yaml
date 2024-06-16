@@ -1,1 +1,22 @@
+---
+- name: Run all the required tasks to add a new node to linstor
+  hosts: all
+  become: yes
+  tasks:
+#Installing linstor public repos as per the folliwng documentation
+#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install    
+    - name: Download Linstor Public Repo Key
+      get_url:
+        url: https://packages.linbit.com/package-signing-pubkey.asc"
+        dest: /tmp/package-signing-pubkey.asc
+        mode: '0755'
 
+    - name: Import Linstor Repo key
+      environment:
+        TERM: xterm
+      command: "gpg --yes -o /etc/apt/trusted.gpg.d/linbit-keyring.gpg --dearmor /tmp/package-signing-pubkey.asc"        
+
+    - name: Add Linstor Repo for PVE Version 8
+      environment:
+        TERM: xterm
+      command: "PVERS=8 && echo "deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] http://packages.linbit.com/public/ proxmox-$PVERS drbd-9" > /etc/apt/sources.list.d/linbit.list"
