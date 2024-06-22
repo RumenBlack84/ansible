@@ -107,7 +107,19 @@
       get_url: 
         url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor-gateway-nfs-nfs.toml"
         dest: /etc/drbd-reactor.d/linstor-gateway-nfs-nfs.toml
-        mode: '0755'            
+        mode: '0755'     
+
+    - name: Download linstor_sattelite.toml
+      get_url: 
+        url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor_satellite.toml"
+        dest: /etc/linstor/linstor_satellite.toml
+        mode: '0755'      
+
+    - name: Download linstor-gateway.service
+      get_url: 
+        url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor-gateway.service"
+        dest: /etc/systemd/system/linstor-gateway.service
+        mode: '0755'                       
 #Install required linstor Packages
     - name: Install drbd-dkms
       apt:
@@ -206,20 +218,20 @@
         make
       args:
         chdir: /tmp/linstor-gateway
-    - name: Move the binary to /usr/bin
+    - name: Move the binary to /usr/sbin
       copy:
         src: /tmp/linstor-gateway/linstor-gateway
-        dest: /usr/bin/linstor-gateway
+        dest: /usr/sbin/linstor-gateway
         remote_src: yes
         mode: '0755'
-    - name: Verify the binary is built and in /usr/bin
+    - name: Verify the binary is built and in /usr/sbin
       stat:
-        path: /usr/bin/linstor-gateway
+        path: /usr/sbin/linstor-gateway
       register: linstor_gateway_stat
 
     - name: Debug output of binary existence
       debug:
-        msg: "linstor-gateway binary exists at /usr/bin/linstor-gateway: {{ linstor_gateway_stat.stat.exists }}"
+        msg: "linstor-gateway binary exists at /usr/sbin/linstor-gateway: {{ linstor_gateway_stat.stat.exists }}"
 #Enable and start required systemd services
     - name: Reload systemd daemon
       command: systemctl daemon-reload
@@ -229,6 +241,11 @@
         name: linstor-satellite
         enabled: yes
         state: started
+    
+    - name: Restart linstor-satellite service just in case it was already started
+      systemd:
+        name: linstor-satellite
+        state: restarted
 
     - name: ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
       systemd:
@@ -239,7 +256,30 @@
       systemd:
         name: drbd-reactor
         enabled: yes
-        state: started                      
+        state: started
+    - name: Enable and start linstor-gateway service
+      systemd:
+        name: linstor-gateway
+        enabled: yes
+        state: started        
+#Enable the services that will auto reload drbd-reactor when things get changed        
+    - name: Copy drbd-reactor-reload.path to /etc/systemd/system/
+      copy:
+        src: /usr/share/doc/drbd-reactor/drbd-reactor-reload.path
+        dest: /etc/systemd/system/drbd-reactor-reload.path
+        remote_src: yes
+
+    - name: Copy drbd-reactor-reload.service to /etc/systemd/system/
+      copy:
+        src: /usr/share/doc/drbd-reactor/drbd-reactor-reload.service
+        dest: /etc/systemd/system/drbd-reactor-reload.service
+        remote_src: yes
+
+    - name: Enable and start drbd-reactor-reload.path
+      systemd:
+        name: drbd-reactor-reload.path
+        enabled: yes
+        state: started                              
 #Restart proxmox services in order to have our drbd storages appear    
     - name: Restart pve-cluster service
       systemd:
