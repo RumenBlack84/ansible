@@ -160,6 +160,7 @@
       copy:
         src: /tmp/linstor-gateway/linstor-gateway
         dest: /usr/bin/linstor-gateway
+        remote_src: yes
         mode: '0755'
     - name: Verify the binary is built and in /usr/bin
       stat:
