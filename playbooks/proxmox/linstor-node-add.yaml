@@ -275,7 +275,7 @@
         msg: "The hostname of the remote host is: {{ hostname_output.stdout }}"
 
     - name: Get the IP address of vmbr0
-      command: ip -4 addr show vmbr0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
+      shell: ip -4 addr show vmbr0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
       register: ip_output
 
     - name: Debug the IP address of vmbr0
