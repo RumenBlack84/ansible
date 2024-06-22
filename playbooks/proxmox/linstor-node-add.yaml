@@ -8,7 +8,7 @@
 #https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install    
     - name: Download Linstor Public Repo Key
       get_url:
-        url: https://packages.linbit.com/package-signing-pubkey.asc"
+        url: "https://packages.linbit.com/package-signing-pubkey.asc"
         dest: /tmp/package-signing-pubkey.asc
         mode: '0755'
 
@@ -45,10 +45,7 @@
         owner: root
         group: root
         mode: '0644'
-
-    - name: Reload systemd daemon
-      command: systemctl daemon-reload
-    
+   
     - name: Create /var/lib/linstor directory
       file:
         path: /var/lib/linstor
@@ -60,8 +57,53 @@
     - name: Set immutable attribute on /var/lib/linstor
       command: chattr +i /var/lib/linstor
 #Create required directories and pull down configuration files from github
-#TODO
+    - name: Create /etc/linstor directory
+      file:
+        path: /etc/linstor
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
+    - name: Create /etc/drbd-reactor.d directory
+      file:
+        path: /etc/drbd-reactor.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'       
+
+    - name: Create /etc/systemd/system/linstor-satellite.service.d/ directory
+      file:
+        path: /etc/systemd/system/linstor-satellite.service.d/
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'    
+    
+    - name: Download linstor-client.conf
+      get_url: 
+        url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor-client.conf"
+        dest: /etc/linstor/linstor-client.conf
+        mode: '0755'
+    
+    - name: Download linstor_db.toml
+      get_url: 
+        url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor_db.toml"
+        dest: /etc/drbd-reactor.d/linstor_db.toml
+        mode: '0755'
+    
+    - name: Download override.conf
+      get_url: 
+        url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/override.conf"
+        dest: /etc/systemd/system/linstor-satellite.service.d/override.conf
+        mode: '0755'      
+    
+    - name: Download linstor-gateway-nfs-nfs.toml
+      get_url: 
+        url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor-gateway-nfs-nfs.toml"
+        dest: /etc/drbd-reactor.d/linstor-gateway-nfs-nfs.toml
+        mode: '0755'            
 #Install required linstor Packages
     - name: Install drbd-dkms
       apt:
@@ -91,12 +133,57 @@
       apt:
         name: drbd-reactor
         state: present
+#Install Dependancies for building linstor-gateway        
+    - name: Ensure Go is installed
+      apt:
+        name: golang
+        state: present
+        update_cache: yes
+    - name: Ensure git is installed
+      apt:
+        name: git
+        state: present
+        update_cache: yes        
+#install linstor gateway
+    - name: Clone the repository
+      git:
+        repo: 'https://github.com/LINBIT/linstor-gateway'
+        dest: /tmp/linstor-gateway
+
+    - name: Build the linstor-gateway package
+      shell: |
+        cd /tmp/linstor-gateway
+        make
+      args:
+        chdir: /tmp/linstor-gateway
+    - name: Move the binary to /usr/bin
+      copy:
+        src: /tmp/linstor-gateway/bin/linstor-gateway
+        dest: /usr/bin/linstor-gateway
+        mode: '0755'
+    - name: Verify the binary is built and in /usr/bin
+      stat:
+        path: /usr/bin/linstor-gateway
+      register: linstor_gateway_stat
+
+    - name: Debug output of binary existence
+      debug:
+        msg: "linstor-gateway binary exists at /usr/bin/linstor-gateway: {{ linstor_gateway_stat.stat.exists }}"
 #Enable and start required systemd services
+    - name: Reload systemd daemon
+      command: systemctl daemon-reload
+
     - name: Enable and start linstor-satellite service
       systemd:
         name: linstor-satellite
         enabled: yes
         state: started
+
+    - name: Enable and start drbd-reactor service
+      systemd:
+        name: drbd-reactor
+        enabled: yes
+        state: started        
 #    - name: 
 #      apt:
 #        name: 
