@@ -257,11 +257,11 @@
         name: drbd-reactor
         enabled: yes
         state: started
-    - name: Enable and start linstor-gateway service
+    - name: Disable and stop linstor-gateway service it will be managed by drbd-reactor
       systemd:
         name: linstor-gateway
-        enabled: yes
-        state: started        
+        enabled: no
+        state: stopped        
 #Enable the services that will auto reload drbd-reactor when things get changed        
     - name: Copy drbd-reactor-reload.path to /etc/systemd/system/
       copy:
