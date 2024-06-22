@@ -210,8 +210,26 @@
       systemd:
         name: pve-ha-lrm
         state: restarted
+    
+    - name: Get the hostname
+      command: hostname
+      register: hostname_output
 
+    - name: Debug the hostname
+      debug:
+        msg: "The hostname of the remote host is: {{ hostname_output.stdout }}"
 
+    - name: Get the IP address of vmbr0
+      command: ip -4 addr show vmbr0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
+      register: ip_output
+
+    - name: Debug the IP address of vmbr0
+      debug:
+        msg: "The IP address of vmbr0 on the remote host is: {{ ip_output.stdout }}"
+
+    - name: Further Manual Action required
+      debug:
+        msg: "The node will need to be manually added to the linstor cluster. Log onto the VIP (pve - 192.168.0.9) which will be running the controller. From there run the following command: linstor node create {{ hostname_output.stdout }} {{ ip_output.stdout }}"
 #    - name: 
 #      apt:
 #        name: 
