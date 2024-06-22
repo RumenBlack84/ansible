@@ -184,6 +184,33 @@
         name: drbd-reactor
         enabled: yes
         state: started        
+#Restart proxmox services in order to have our drbd storages appear    
+    - name: Restart pve-cluster service
+      systemd:
+        name: pve-cluster
+        state: restarted
+
+    - name: Restart pvedaemon service
+      systemd:
+        name: pvedaemon
+        state: restarted
+
+    - name: Restart pvestatd service
+      systemd:
+        name: pvestatd
+        state: restarted
+
+    - name: Restart pveproxy service
+      systemd:
+        name: pveproxy
+        state: restarted
+
+    - name: Restart pve-ha-lrm service
+      systemd:
+        name: pve-ha-lrm
+        state: restarted
+
+
 #    - name: 
 #      apt:
 #        name: 
