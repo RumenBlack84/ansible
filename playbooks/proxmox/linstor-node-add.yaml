@@ -265,13 +265,13 @@
 #Enable the services that will auto reload drbd-reactor when things get changed        
     - name: Copy drbd-reactor-reload.path to /etc/systemd/system/
       copy:
-        src: /usr/share/doc/drbd-reactor/drbd-reactor-reload.path
+        src: /usr/share/doc/drbd-reactor/examples/drbd-reactor-reload.path
         dest: /etc/systemd/system/drbd-reactor-reload.path
         remote_src: yes
 
     - name: Copy drbd-reactor-reload.service to /etc/systemd/system/
       copy:
-        src: /usr/share/doc/drbd-reactor/drbd-reactor-reload.service
+        src: /usr/share/doc/drbd-reactor/examples/drbd-reactor-reload.service
         dest: /etc/systemd/system/drbd-reactor-reload.service
         remote_src: yes
 
