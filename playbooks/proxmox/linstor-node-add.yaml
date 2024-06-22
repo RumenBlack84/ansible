@@ -3,9 +3,13 @@
   hosts: all
   become: yes
   tasks:
-#Still a WIP, dont use
-#Installing linstor public repos as per the folliwng documentation
+#Installing linstor public repos as per the following documentation
+#https://github.com/LINBIT/linstor-gateway/tree/master
+#https://github.com/LINBIT/linstor-gateway/issues/28
+#https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
 #https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install    
+#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#ch-linstor-gateway
+#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
     - name: Download Linstor Public Repo Key
       get_url:
         url: "https://packages.linbit.com/package-signing-pubkey.asc"
@@ -133,6 +137,52 @@
       apt:
         name: drbd-reactor
         state: present
+    - name: Install LIO iSCSI
+      apt:
+        name: targetcli-fb
+        state: present        
+    - name: Install nfs clients
+      apt:
+        name: nfs-common
+        state: present   
+    - name: Install 
+      apt:
+        name: nfs-kernel-server
+        state: present   
+    - name: Install resource agents
+      apt:
+        name: resource-agents
+        state: present      
+#Work around for current debian issue with resource agents 
+#This is currently causing an issue with iptables rules not being removed when drbd-reactors are changing hosts:
+#This was causing the VIP to fail for the DB config (192.168.0.9) in my case as the rules got left in place
+#Relevant issue https://github.com/LINBIT/linstor-gateway/issues/28
+#This section can be removed when this issue is resolved
+    - name: Ensure git is installed
+      apt:
+        name: git
+        state: present
+        update_cache: yes
+
+    - name: Clone the resource-agents repository
+      git:
+        repo: 'https://github.com/ClusterLabs/resource-agents.git'
+        dest: /tmp/resource-agents
+
+    - name: Copy portblock script to /usr/lib/ocf/resource.d/heartbeat
+      copy:
+        src: /tmp/resource-agents/heartbeat/portblock
+        dest: /usr/lib/ocf/resource.d/heartbeat/portblock
+        remote_src: yes
+        mode: '0755'
+
+    - name: Ensure the portblock script is executable
+      file:
+        path: /usr/lib/ocf/resource.d/heartbeat/portblock
+        mode: '0755'
+        state: file
+#End of workaround section
+
 #Install Dependancies for building linstor-gateway        
     - name: Ensure Go is installed
       apt:
@@ -180,11 +230,16 @@
         enabled: yes
         state: started
 
+    - name: ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
+      systemd:
+        name: nfs-server
+        enabled: no
+        state: stopped  
     - name: Enable and start drbd-reactor service
       systemd:
         name: drbd-reactor
         enabled: yes
-        state: started        
+        state: started                      
 #Restart proxmox services in order to have our drbd storages appear    
     - name: Restart pve-cluster service
       systemd:
