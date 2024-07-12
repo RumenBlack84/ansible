@@ -1,17 +1,17 @@
 ---
 - name: Run all the required tasks to add a new node to linstor
   hosts: all
-  become: yes
+  become: true
   tasks:
-#Installing linstor public repos as per the following documentation
-#https://github.com/LINBIT/linstor-gateway/tree/master
-#https://github.com/LINBIT/linstor-gateway/issues/28
-#https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
-#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install    
-#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#ch-linstor-gateway
-#https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
+# Installing linstor public repos as per the following documentation
+# https://github.com/LINBIT/linstor-gateway/tree/master
+# https://github.com/LINBIT/linstor-gateway/issues/28
+# https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
+# https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-proxmox-ls-install
+# https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#ch-linstor-gateway
+# https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
     - name: Download Linstor Public Repo Key
-      get_url:
+      ansible.builtin.get_url:
         url: "https://packages.linbit.com/package-signing-pubkey.asc"
         dest: /tmp/package-signing-pubkey.asc
         mode: '0755'
@@ -19,22 +19,22 @@
     - name: Import Linstor Repo key
       environment:
         TERM: xterm
-      command: "gpg --yes -o /etc/apt/trusted.gpg.d/linbit-keyring.gpg --dearmor /tmp/package-signing-pubkey.asc"        
-    
+      ansible.builtin.command: "gpg --yes -o /etc/apt/trusted.gpg.d/linbit-keyring.gpg --dearmor /tmp/package-signing-pubkey.asc"
+
     - name: Overwrite linbit.list with LINBIT repository entry
-      copy:
+      ansible.builtin.copy:
         content: |
           deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] http://packages.linbit.com/public/ proxmox-8 drbd-9
         dest: /etc/apt/sources.list.d/linbit.list
         owner: root
         group: root
         mode: '0644'
-#Update apt cache with our nice new repo
+# Update apt cache with our nice new repo
     - name: Update apt cache
       apt:
         update_cache: yes
-#Create mount service for linstor database in case this node ever become active
-#As per https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
+# Create mount service for linstor database in case this node ever become active
+# As per https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
     - name: Create var-lib-linstor.mount file
       copy:
         content: |
@@ -60,7 +60,7 @@
 
     - name: Set immutable attribute on /var/lib/linstor
       command: chattr +i /var/lib/linstor
-#Create required directories and pull down configuration files from github
+# Create required directories and pull down configuration files from github
     - name: Create /etc/linstor directory
       file:
         path: /etc/linstor
@@ -120,7 +120,7 @@
         url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor-gateway.service"
         dest: /etc/systemd/system/linstor-gateway.service
         mode: '0755'                       
-#Install required linstor Packages
+# Install required linstor Packages
     - name: Install drbd-dkms
       apt:
         name: drbd-dkms
