@@ -161,8 +161,8 @@
     - name: Unmount /boot/efi if mounted
       ansible.builtin.command: umount /boot/efi
       loop: "{{ efi_partitions }}"
-      when: efi_mount_check.results[ansible_loop.index0].mount
-      changed_when: efi_mount_check.results[ansible_loop.index0].mount  # Only mark as changed if it was mounted
+      when: efi_mount_check.results | selectattr('src', 'equalto', item) | map(attribute='mount') | first
+      changed_when: efi_mount_check.results | selectattr('src', 'equalto', item) | map(attribute='mount') | first
 
     - name: Initialize Proxmox boot tool on each EFI partition
       ansible.builtin.command: "proxmox-boot-tool init {{ item }} grub"
