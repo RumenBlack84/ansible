@@ -64,16 +64,11 @@
         group: root
         mode: '0644'
 
-    # Reinstall proxmox-widget-toolkit after creating no-nag-script
-    - name: Uninstall proxmox-widget-toolkit
-      ansible.builtin.apt:
-        name: proxmox-widget-toolkit
-        state: absent
+    - name: Reinstall proxmox-widget-toolkit  # noqa command-instead-of-module
+      ansible.builtin.command: apt-get install --reinstall -y proxmox-widget-toolkit
+      register: reinstall_result
+      changed_when: reinstall_result.rc == 0
 
-    - name: Install proxmox-widget-toolkit
-      ansible.builtin.apt:
-        name: proxmox-widget-toolkit
-        state: present
     # Update now that repos are fixed
     - name: Upgrade all packages
       ansible.builtin.apt:
