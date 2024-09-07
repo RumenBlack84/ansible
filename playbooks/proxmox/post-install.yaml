@@ -4,6 +4,8 @@
   become: true
   vars:
     ansible_shell_executable: /bin/bash  # Use bash as the default shell
+    kernel_version: "6.8.12-1-pve"  # Define the kernel version as a variable
+
   tasks:
 # Duplicate Promox helper script functions
 # Correct VE sources
@@ -77,38 +79,38 @@
         update_cache: true
         upgrade: dist
         autoremove: true
-    # Installing and pinning Kernel to 6.8.12-1-pve so as to not break intel igpu sr-iov
+    # Installing and pinning Kernel to {{ kernel_version }} so as to not break intel igpu sr-iov
     - name: Install specific kernel version
       ansible.builtin.apt:
-        name: pve-kernel-6.8.12-1-pve
+        name: pve-kernel-{{ kernel_version }}
         state: present
         update_cache: true
 
     - name: Install specific kernel headers
       ansible.builtin.apt:
-        name: pve-headers-6.8.12-1-pve
+        name: pve-headers-{{ kernel_version }}
         state: present
         update_cache: true
 
     - name: Check if proxmox-kernel is already on hold
-      ansible.builtin.shell: "set -o pipefail && apt-mark showhold | grep -q proxmox-kernel-6.8.12-1-pve"
+      ansible.builtin.shell: "set -o pipefail && apt-mark showhold | grep -q proxmox-kernel-{{ kernel_version }}"
       register: kernel_on_hold
       failed_when: kernel_on_hold.rc > 1
       changed_when: false
 
     - name: Hold specific kernel version
-      ansible.builtin.command: "apt-mark hold proxmox-kernel-6.8.12-1-pve"
+      ansible.builtin.command: "apt-mark hold proxmox-kernel-{{ kernel_version }}"
       when: kernel_on_hold.rc != 0
       changed_when: true
 
     - name: Check if proxmox-headers are already on hold
-      ansible.builtin.shell: "set -o pipefail && apt-mark showhold | grep -q proxmox-headers-6.8.12-1-pve"
+      ansible.builtin.shell: "set -o pipefail && apt-mark showhold | grep -q proxmox-headers-{{ kernel_version }}"
       register: header_on_hold
       failed_when: header_on_hold.rc > 1
       changed_when: false
 
     - name: Hold kernel headers
-      ansible.builtin.command: "apt-mark hold proxmox-headers-6.8.12-1-pve"
+      ansible.builtin.command: "apt-mark hold proxmox-headers-{{ kernel_version }}"
       when: header_on_hold.rc != 0
       changed_when: true
 
@@ -120,12 +122,12 @@
 
     - name: Unpin the current kernel if it doesn't match the desired one
       ansible.builtin.command: "proxmox-boot-tool kernel unpin"
-      when: pinned_kernel.stdout != '' and pinned_kernel.stdout != '6.8.12-1-pve'
+      when: pinned_kernel.stdout != '' and pinned_kernel.stdout != kernel_version
       changed_when: true
 
     - name: Pin specific kernel version in Proxmox
-      ansible.builtin.shell: "set -o pipefail && yes | proxmox-boot-tool kernel pin 6.8.12-1-pve"
-      when: pinned_kernel.stdout != '6.8.12-1-pve'
+      ansible.builtin.shell: "set -o pipefail && yes | proxmox-boot-tool kernel pin {{ kernel_version }}"
+      when: pinned_kernel.stdout != kernel_version
       # Ignore rc 141 sigpipe since we are just using it to pass yes to the kernel pin command for automation
       failed_when: pinned_kernel.rc != 0 and pinned_kernel.rc != 141
       changed_when: true
