@@ -164,7 +164,7 @@
       ansible.posix.mount:
         path: /boot/efi
         state: remounted
-      when: proxmox_boot_init.rc == 0
+      when: efi_partitions is defined
 
     - name: Print EFI partitions for verification
       ansible.builtin.debug:
