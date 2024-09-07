@@ -1,14 +1,14 @@
 ---
 - name: Run Proxmox VE Post Install Process
   hosts: all
-  become: yes
+  become: true
   tasks:
-#Duplicate Promox helper script functions
-#Correct VE sources
+# Duplicate Promox helper script functions
+# Correct VE sources
     - name: Correcting Proxmox VE Sources
       block:
         - name: Update sources.list
-          copy:
+          ansible.builtin.copy:
             content: |
               deb http://deb.debian.org/debian bookworm main contrib
               deb http://deb.debian.org/debian bookworm-updates main contrib
@@ -19,32 +19,33 @@
             mode: '0644'
 
         - name: Add non-free firmware configuration
-          copy:
+          ansible.builtin.copy:
             content: |
               APT::Get::Update::SourceListWarnings::NonFreeFirmware "false";
             dest: /etc/apt/apt.conf.d/no-bookworm-firmware.conf
             owner: root
             group: root
             mode: '0644'
-    #Disable enterprise repos
+    # Disable enterprise repos
     - name: Ensure pve-enterprise repository is disabled
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/apt/sources.list.d/pve-enterprise.list
         regexp: '^deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise'
         line: '# deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise'
-        create: yes
-    #Enable free no sub repo        
+        mode: "0644"
+        create: true
+    # Enable free no sub repo
     - name: Enable 'pve-no-subscription' repository
-      copy:
+      ansible.builtin.copy:
         content: |
           deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
         dest: /etc/apt/sources.list.d/pve-install-repo.list
         owner: root
         group: root
         mode: '0644'
-    #Fix the ceph repos
+    # Fix the ceph repos
     - name: Correcting 'ceph package repositories'
-      copy:
+      ansible.builtin.copy:
         content: |
           # deb https://enterprise.proxmox.com/debian/ceph-quincy bookworm enterprise
           # deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription
@@ -54,69 +55,127 @@
         owner: root
         group: root
         mode: '0644'
-    #Remove Subscription Nag
-    - name: Create no-nag-script
-      copy:
-        content: |
-          DPkg::Post-Invoke { "dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\\.js$'; if [ $? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\\.status.*{/{s/\\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi"; };
-        dest: /etc/apt/apt.conf.d/no-nag-script
+    # Remove Subscription Nag
+    - name: Copy no-nag-script to the target machine
+      ansible.builtin.copy:
+        src: files/no-nag-script  # Path to the file on the Ansible host
+        dest: /etc/apt/apt.conf.d/no-nag-script  # Path where it will be copied on the target
         owner: root
         group: root
         mode: '0644'
 
-    - name: Reinstall proxmox-widget-toolkit after creating no-nag-script
-      shell: "apt-get install --reinstall -y proxmox-widget-toolkit"
-    #Update now that repos are fixed    
-    - name: Update apt cache
-      apt:
-        update_cache: yes
+    # Reinstall proxmox-widget-toolkit after creating no-nag-script
+    - name: Uninstall proxmox-widget-toolkit
+      ansible.builtin.apt:
+        name: proxmox-widget-toolkit
+        state: absent
 
-    - name: Upgrade all packages
-      apt:
-        upgrade: dist
-        autoremove: yes        
-    # Installing and pinning Kernel to 6.5.13-3-pve so as to not break intel igpu sr-iov on pve1 & pve2
-    - name: Install specific kernel version
-      apt:
-        name: pve-kernel-6.5.13-3-pve
+    - name: Install proxmox-widget-toolkit
+      ansible.builtin.apt:
+        name: proxmox-widget-toolkit
         state: present
-        update_cache: yes
+    # Update now that repos are fixed
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        autoremove: true
+    # Installing and pinning Kernel to 6.8.12-1-pve so as to not break intel igpu sr-iov
+    - name: Install specific kernel version
+      ansible.builtin.apt:
+        name: pve-kernel-6.8.12-1-pve
+        state: present
+        update_cache: true
 
     - name: Install specific kernel headers
-      apt:
-        name: pve-headers-6.5.13-3-pve
+      ansible.builtin.apt:
+        name: pve-headers-6.8.12-1-pve
         state: present
-        update_cache: yes
+        update_cache: true
+
+    - name: Check if proxmox-kernel is already on hold
+      ansible.builtin.shell: "apt-mark showhold | grep -q proxmox-kernel-6.8.12-1-pve"
+      register: kernel_on_hold
+      ignore_errors: true
+      changed_when: false
 
     - name: Hold specific kernel version
-      command: "apt-mark hold proxmox-kernel-6.5.13-3-pve"
+      ansible.builtin.command: "apt-mark hold proxmox-kernel-6.8.12-1-pve"
+      when: kernel_on_hold.rc != 0
+      changed_when: true
 
-    - name: Hold pve-kernel package
-      command: "apt-mark hold proxmox-default-kernel"
+    - name: Check if proxmox-headers are already on hold
+      ansible.builtin.shell: "apt-mark showhold | grep -q proxmox-headers-6.8.12-1-pve"
+      register: header_on_hold
+      ignore_errors: true
+      changed_when: false
+
+    - name: Hold kernel headers
+      ansible.builtin.command: "apt-mark hold proxmox-headers-6.8.12-1-pve"
+      when: header_on_hold.rc != 0
+      changed_when: true
+
+    - name: Get pinned kernel version
+      ansible.builtin.shell: "set -o pipefail && proxmox-boot-tool kernel list | awk '/Pinned kernel:/{getline; print}'"
+      register: pinned_kernel
+      changed_when: false
+
+    - name: Unpin the current kernel if it doesn't match the desired one
+      ansible.builtin.command: "proxmox-boot-tool kernel unpin"
+      when: pinned_kernel.stdout != '' and pinned_kernel.stdout != '6.8.12-1-pve'
+      changed_when: true
 
     - name: Pin specific kernel version in Proxmox
-      shell: "yes | proxmox-boot-tool kernel pin 6.5.13-3-pve"   
-      
+      ansible.builtin.shell: "set -o pipefail && yes | proxmox-boot-tool kernel pin 6.8.12-1-pve"
+      when: pinned_kernel.stdout != '6.8.12-1-pve'
+      changed_when: true
+
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
-      command: blkid -t TYPE=vfat -o device
+      ansible.builtin.command: blkid -t TYPE=vfat -o device
       register: efi_partition_output
+      changed_when: false
 
     - name: Set EFI partitions as a list
-      set_fact:
+      ansible.builtin.set_fact:
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
 
-    - name: Set Grub kernel parameters to enable IOMMU
-      command: "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\\GRUB_CMDLINE_LINUX_DEFAULT=\"quiet intel_iommu=on iommu=pt\"' /etc/default/grub"
+    - name: Check if "intel_iommu=on" is present in GRUB_CMDLINE_LINUX_DEFAULT
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: 'intel_iommu=on'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
+        state: absent
+      register: grub_intel_iommu
+      changed_when: grub_intel_iommu.state == 'absent'
+      notify: Set Grub kernel parameters
+
+    - name: Check if "iommu=pt" is present in GRUB_CMDLINE_LINUX_DEFAULT
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: 'iommu=pt'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
+        state: absent
+      register: grub_iommu_pt
+      changed_when: grub_iommu_pt.state == 'absent'
+      notify: Set Grub kernel parameters
+
+  handlers:
+    - name: Set Grub kernel parameters
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
+        backup: true
 
     - name: Initialize Proxmox boot tool on each EFI partition
-      command: "proxmox-boot-tool init {{ item }} grub"
+      ansible.builtin.command: "proxmox-boot-tool init {{ item }} grub"
       loop: "{{ efi_partitions }}"
       when: efi_partitions is defined
 
     - name: Print EFI partitions for verification
-      debug:
+      ansible.builtin.debug:
         msg: "EFI partitions: {{ efi_partitions }}"
 
     - name: Refresh Boot
-      command: "proxmox-boot-tool refresh"
+      ansible.builtin.command: "proxmox-boot-tool refresh"
