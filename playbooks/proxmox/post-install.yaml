@@ -180,3 +180,7 @@
       ansible.builtin.debug:
         msg: "The system has rebooted and is back online."
       when: reboot_result is defined
+
+    - name: Notify of next steps
+      ansible.builtin.debug:
+        msg: "It's now time to configure networking, join the system to the proxmox cluster manually and then proceed with ceph ansible."
