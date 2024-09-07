@@ -130,6 +130,13 @@
       failed_when: pinned_kernel.rc != 0 and pinned_kernel.rc != 141
       changed_when: true
 
+    - name: Set Grub kernel parameters
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
+        backup: true
+
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
       ansible.builtin.command: blkid -t TYPE=vfat -o device
@@ -140,38 +147,12 @@
       ansible.builtin.set_fact:
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
 
-    - name: Check if "intel_iommu=on" is present in GRUB_CMDLINE_LINUX_DEFAULT
-      ansible.builtin.lineinfile:
-        path: /etc/default/grub
-        regexp: 'intel_iommu=on'
-        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
-        state: absent
-      register: grub_intel_iommu
-      changed_when: grub_intel_iommu.changed
-      notify: Set Grub kernel parameters
-
-    - name: Check if "iommu=pt" is present in GRUB_CMDLINE_LINUX_DEFAULT
-      ansible.builtin.lineinfile:
-        path: /etc/default/grub
-        regexp: 'iommu=pt'
-        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
-        state: absent
-      register: grub_iommu_pt
-      changed_when: grub_iommu_pt.changed
-      notify: Set Grub kernel parameters
-
-  handlers:
-    - name: Set Grub kernel parameters
-      ansible.builtin.lineinfile:
-        path: /etc/default/grub
-        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
-        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
-        backup: true
-
     - name: Initialize Proxmox boot tool on each EFI partition
       ansible.builtin.command: "proxmox-boot-tool init {{ item }} grub"
       loop: "{{ efi_partitions }}"
       when: efi_partitions is defined
+      register: proxmox_boot_init
+      changed_when: proxmox_boot_init.rc == 0 and "nothing to do" not in proxmox_boot_init.stdout
 
     - name: Print EFI partitions for verification
       ansible.builtin.debug:
@@ -179,3 +160,5 @@
 
     - name: Refresh Boot
       ansible.builtin.command: "proxmox-boot-tool refresh"
+      register: proxmox_boot_refresh
+      changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
