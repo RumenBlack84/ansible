@@ -89,9 +89,9 @@
         update_cache: true
 
     - name: Check if proxmox-kernel is already on hold
-      ansible.builtin.shell: "apt-mark showhold | grep -q proxmox-kernel-6.8.12-1-pve"
+      ansible.builtin.shell: "set -o pipefail && apt-mark showhold | grep -q proxmox-kernel-6.8.12-1-pve"
       register: kernel_on_hold
-      ignore_errors: true
+      failed_when: kernel_on_hold.rc > 1
       changed_when: false
 
     - name: Hold specific kernel version
@@ -100,9 +100,9 @@
       changed_when: true
 
     - name: Check if proxmox-headers are already on hold
-      ansible.builtin.shell: "apt-mark showhold | grep -q proxmox-headers-6.8.12-1-pve"
+      ansible.builtin.shell: "set -o pipefail && apt-mark showhold | grep -q proxmox-headers-6.8.12-1-pve"
       register: header_on_hold
-      ignore_errors: true
+      failed_when: header_on_hold.rc > 1
       changed_when: false
 
     - name: Hold kernel headers
@@ -114,6 +114,7 @@
       ansible.builtin.shell: "set -o pipefail && proxmox-boot-tool kernel list | awk '/Pinned kernel:/{getline; print}'"
       register: pinned_kernel
       changed_when: false
+      failed_when: pinned_kernel.rc > 1
 
     - name: Unpin the current kernel if it doesn't match the desired one
       ansible.builtin.command: "proxmox-boot-tool kernel unpin"
