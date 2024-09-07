@@ -147,22 +147,11 @@
       ansible.builtin.set_fact:
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
 
-    - name: Check if /boot/efi is mounted
+    - name: Umount /efi/boot
       ansible.posix.mount:
-        src: "{{ item }}"
         path: /boot/efi
-        fstype: vfat
-        state: mounted
-      loop: "{{ efi_partitions }}"
+        state: unmounted
       when: efi_partitions is defined
-      register: efi_mount_check
-      changed_when: false
-
-    - name: Unmount /boot/efi if mounted
-      ansible.builtin.command: umount /boot/efi
-      loop: "{{ efi_partitions }}"
-      when: efi_mount_check.results | selectattr('src', 'equalto', item) | map(attribute='mount') | first
-      changed_when: efi_mount_check.results | selectattr('src', 'equalto', item) | map(attribute='mount') | first
 
     - name: Initialize Proxmox boot tool on each EFI partition
       ansible.builtin.command: "proxmox-boot-tool init {{ item }} grub"
@@ -170,6 +159,12 @@
       when: efi_partitions is defined
       register: proxmox_boot_init
       changed_when: proxmox_boot_init.rc == 0 and "nothing to do" not in proxmox_boot_init.stdout
+
+    - name: Remount /boot/efi
+      ansible.posix.mount:
+        path: /boot/efi
+        state: remounted
+      when: proxmox_boot_init.rc == 0
 
     - name: Print EFI partitions for verification
       ansible.builtin.debug:
