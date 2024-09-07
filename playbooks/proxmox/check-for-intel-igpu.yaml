@@ -1,0 +1,44 @@
+---
+- name: Check Intel iGPU and determine virtualization support
+  hosts: all
+  gather_facts: false
+  tasks:
+
+    - name: Check if Intel iGPU is present
+      command: lspci | grep -iq 'vga.*intel'
+      register: igpu_check
+      ignore_errors: true  # If there's no Intel iGPU, the grep command will fail
+      changed_when: false
+
+    - name: Fail if no Intel iGPU is detected
+      fail:
+        msg: "No Intel iGPU detected."
+      when: igpu_check.rc != 0
+
+    - name: Extract CPU model name
+      command: lscpu | grep -m 1 'Model name:'
+      register: cpu_model_name
+      changed_when: false
+
+    - name: Extract CPU model number
+      set_fact:
+        cpu_model_number: "{{ cpu_model_name.stdout | regex_search('(?<=i[3579]-)\\d{4,5}') }}"
+      when: cpu_model_name.stdout is defined
+
+    - name: Fail if CPU model number cannot be extracted
+      fail:
+        msg: "Failed to extract CPU model number."
+      when: cpu_model_number is undefined
+
+    - name: Determine if the system supports SR-IOV or GVT-g
+      set_fact:
+        virtualization_support: >-
+          {% if cpu_model_number | int > 11999 %}
+            SR-IOV
+          {% else %}
+            GVT-g
+          {% endif %}
+
+    - name: Display virtualization support
+      debug:
+        msg: "The system likely supports {{ virtualization_support }} (Intel GPU Virtualization)."
