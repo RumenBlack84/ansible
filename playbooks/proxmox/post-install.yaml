@@ -160,12 +160,6 @@
       register: proxmox_boot_init
       changed_when: proxmox_boot_init.rc == 0 and "nothing to do" not in proxmox_boot_init.stdout
 
-    - name: Remount /boot/efi
-      ansible.posix.mount:
-        path: /boot/efi
-        state: remounted
-      when: efi_partitions is defined
-
     - name: Print EFI partitions for verification
       ansible.builtin.debug:
         msg: "EFI partitions: {{ efi_partitions }}"
@@ -174,3 +168,15 @@
       ansible.builtin.command: "proxmox-boot-tool refresh"
       register: proxmox_boot_refresh
       changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
+
+    - name: Reboot the system
+      ansible.builtin.reboot:
+        reboot_timeout: 600  # Adjust the timeout depending on how long the system takes to reboot
+        msg: "Rebooting the system now, waiting up to 600 seconds for it to be available again"
+      when: proxmox_boot_refresh is defined
+      register: reboot_result
+
+    - name: Notify user of reboot completion
+      ansible.builtin.debug:
+        msg: "The system has rebooted and is back online."
+      when: reboot_result is defined
