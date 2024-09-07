@@ -126,6 +126,8 @@
     - name: Pin specific kernel version in Proxmox
       ansible.builtin.shell: "set -o pipefail && yes | proxmox-boot-tool kernel pin 6.8.12-1-pve"
       when: pinned_kernel.stdout != '6.8.12-1-pve'
+      # Ignore rc 141 sigpipe since we are just using it to pass yes to the kernel pin command for automation
+      failed_when: pinned_kernel.rc != 0 and pinned_kernel.rc != 141
       changed_when: true
 
     # Changing bootloader to use grub instead of systemd
