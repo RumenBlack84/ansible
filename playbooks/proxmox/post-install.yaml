@@ -147,7 +147,7 @@
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
         state: absent
       register: grub_intel_iommu
-      changed_when: grub_intel_iommu.state == 'absent'
+      changed_when: grub_intel_iommu.changed
       notify: Set Grub kernel parameters
 
     - name: Check if "iommu=pt" is present in GRUB_CMDLINE_LINUX_DEFAULT
@@ -157,7 +157,7 @@
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
         state: absent
       register: grub_iommu_pt
-      changed_when: grub_iommu_pt.state == 'absent'
+      changed_when: grub_iommu_pt.changed
       notify: Set Grub kernel parameters
 
   handlers:
