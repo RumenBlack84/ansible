@@ -1,0 +1,153 @@
+---
+- name: Intel sr-iov
+  ansible.builtin.debug:
+    msg: "Starting install procedure for sr-iov igpu virtualization"
+
+- name: Install mokutil dependancy
+  ansible.builtin.apt:
+    name: mokutil
+    state: present
+    update_cache: true
+
+- name: Ensure git is installed
+  ansible.builtin.apt:
+    name: git
+    state: present
+    update_cache: true
+
+- name: Ensure dkms is installed
+  ansible.builtin.apt:
+    name: dkms
+    state: present
+    update_cache: true
+
+- name: Ensure sysfsutils is installed
+  ansible.builtin.apt:
+    name: sysfsutils
+    state: present
+    update_cache: true
+
+- name: Remove any pre-existing i915-sriov-dkms files part 1
+  ansible.builtin.file:
+    path: "/var/lib/dkms/i915-sriov-dkms*"
+    state: absent
+  with_fileglob:
+    - "/var/lib/dkms/i915-sriov-dkms*"
+
+- name: Remove any pre-existing i915-sriov-dkms files part 2
+  ansible.builtin.file:
+    path: "/usr/src/i915-sriov-dkms*"
+    state: absent
+  with_fileglob:
+    - "/usr/src/i915-sriov-dkms*"
+
+- name: Remove any pre-existing i915-sriov-dkms files part 3
+  ansible.builtin.file:
+    path: "/tmp/i915-sriov-dkms"
+    state: absent
+  with_fileglob:
+    - "/tmp/i915-sriov-dkms*"
+
+- name: Get current kernel version
+  ansible.builtin.command: uname -r
+  register: kernel_version
+
+- name: Strip "-pve" from kernel version
+  ansible.builtin.set_fact:
+    KERNEL: "{{ kernel_version.stdout | regex_replace('-pve$', '') }}"
+  changed_when: false
+
+- name: Display the final kernel version
+  ansible.builtin.debug:
+    msg: "Kernel version without '-pve' is {{ KERNEL }}"
+
+- name: Clone the repository
+  ansible.builtin.git:
+    repo: 'https://github.com/strongtz/i915-sriov-dkms.git'
+    version: main
+    dest: /tmp/i915-sriov-dkms
+
+- name: Backup the dkms.conf file
+  ansible.builtin.copy:
+    src: /tmp/i915-sriov-dkms/dkms.conf
+    dest: /tmp/i915-sriov-dkms/dkms.conf.bak
+    remote_src: true
+
+- name: Remove '-j$(nproc)' from dkms.conf
+  ansible.builtin.replace:
+    path: /tmp/i915-sriov-dkms/dkms.conf
+    regexp: ' -j\$\(nproc\)'
+    replace: ''
+
+- name: Extract PACKAGE_VERSION from dkms.conf
+  ansible.builtin.command: grep 'PACKAGE_VERSION=' ~/i915-sriov-dkms/dkms.conf
+  register: dkms_version_line
+
+- name: Set the dkms version
+  ansible.builtin.set_fact:
+    dkms_ver: "{{ dkms_version_line.stdout.split('=')[1] | trim('\"') }}"
+
+- name: Display the extracted PACKAGE_VERSION
+  ansible.builtin.debug:
+    msg: "The DKMS package version is {{ dkms_ver }}"
+
+- name: Add the i915-sriov-dkms module using DKMS
+  ansible.builtin.command:
+    cmd: dkms add /tmp/i915-sriov-dkms/
+
+- name: Install the i915-sriov-dkms module using DKMS
+  ansible.builtin.command: dkms install -m i915-sriov-dkms -v {{ dkms_ver }} -k {{ ansible_kernel }} --force -j 1
+
+- name: Set Grub kernel parameters
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt i915.enable_guc=3 i915.max_vfs=7'
+    backup: true
+
+# In every system I've seen this has been 00:02.0 however if issues are encountered verify with lspci | grep VGA
+- name: Overwrite /etc/sysfs.conf with SR-IOV configuration
+  ansible.builtin.copy:
+    content: |
+      devices/pci0000:00/0000:00:02.0/sriov_numvfs = 7
+    dest: /etc/sysfs.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Refresh Boot
+  ansible.builtin.command: "proxmox-boot-tool refresh"
+  register: proxmox_boot_refresh
+  changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
+
+- name: Reboot the system
+  ansible.builtin.reboot:
+    reboot_timeout: 600  # Adjust the timeout depending on how long the system takes to reboot
+    msg: "Rebooting the system now, waiting up to 600 seconds for it to be available again"
+  when: proxmox_boot_refresh is defined
+  register: reboot_result
+
+- name: Notify user of reboot completion
+  ansible.builtin.debug:
+    msg: "The system has rebooted and is back online."
+  when: reboot_result is defined
+
+- name: Run lspci and grep for VGA
+  ansible.builtin.command: "lspci | grep VGA"
+  register: lspci_vga_output
+
+- name: Run dmesg and grep for i915
+  ansible.builtin.command: "dmesg | grep i915"
+  register: dmesg_i915_output
+
+- name: Print lspci VGA output
+  debug:
+    msg: "lspci VGA output:\n{{ lspci_vga_output.stdout }}"
+
+- name: Print dmesg i915 output
+  debug:
+    msg: "dmesg i915 output:\n{{ dmesg_i915_output.stdout }}"
+
+- name: Notify of next steps
+  ansible.builtin.debug:
+    msg: "Intel SR-IOV has been configured, please check the above outputs to ensure there are multiple intel igpus"

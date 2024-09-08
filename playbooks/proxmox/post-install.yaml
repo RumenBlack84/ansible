@@ -138,16 +138,19 @@
         regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
         backup: true
+      when: pinned_kernel.stdout != kernel_version
 
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
       ansible.builtin.command: blkid -t TYPE=vfat -o device
       register: efi_partition_output
       changed_when: false
+      when: pinned_kernel.stdout != kernel_version
 
     - name: Set EFI partitions as a list
       ansible.builtin.set_fact:
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
+      when: pinned_kernel.stdout != kernel_version
 
     - name: Umount /efi/boot
       ansible.posix.mount:
@@ -165,17 +168,19 @@
     - name: Print EFI partitions for verification
       ansible.builtin.debug:
         msg: "EFI partitions: {{ efi_partitions }}"
+      when: efi_partitions is defined
 
     - name: Refresh Boot
       ansible.builtin.command: "proxmox-boot-tool refresh"
       register: proxmox_boot_refresh
       changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
+      when: efi_partitions is defined
 
     - name: Reboot the system
       ansible.builtin.reboot:
         reboot_timeout: 600  # Adjust the timeout depending on how long the system takes to reboot
         msg: "Rebooting the system now, waiting up to 600 seconds for it to be available again"
-      when: proxmox_boot_refresh is defined
+      when: ansible_kernel != kernel_version
       register: reboot_result
 
     - name: Notify user of reboot completion
@@ -183,6 +188,15 @@
         msg: "The system has rebooted and is back online."
       when: reboot_result is defined
 
-    - name: Notify of next steps
-      ansible.builtin.debug:
-        msg: "It's now time to configure networking, join the system to the proxmox cluster manually and then proceed with ceph ansible."
+    - name: Gather facts again after reboot
+      ansible.builtin.setup:
+
+    - name: Check if Intel iGPU is present
+      ansible.builtin.shell: set -o pipefail && lspci | grep -iq 'vga.*intel'
+      register: igpu_check
+      ignore_errors: true  # If there's no Intel iGPU, the grep command will fail
+      changed_when: false
+
+    - name: If an intel igpu is found run through the tasks to check for GVT-g or sr-iov
+      ansible.builtin.include_tasks: check-for-intel-igpu.yml
+      when: igpu_check.rc = 0
