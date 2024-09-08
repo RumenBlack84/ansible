@@ -199,4 +199,4 @@
 
     - name: If an intel igpu is found run through the tasks to check for GVT-g or sr-iov
       ansible.builtin.include_tasks: check-for-intel-igpu.yml
-      when: igpu_check.rc = 0
+      when: igpu_check.rc == 0
