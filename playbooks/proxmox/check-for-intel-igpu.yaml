@@ -36,6 +36,10 @@
         Legacy support
       {% endif %}
 
+- name: Trim whitespace from virtualization_support
+  ansible.builtin.set_fact:
+    virtualization_support: "{{ virtualization_support | trim }}"
+
 - name: Display virtualization support
   ansible.builtin.debug:
     msg: >-
