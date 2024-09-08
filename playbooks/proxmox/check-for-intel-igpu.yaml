@@ -46,9 +46,9 @@
       {% endif %}
 
 - name: Include SR-IOV tasks if the system supports SR-IOV
-  ansible.builtin.include_tasks: tasks_intel_igpu_sriov.yml
+  ansible.builtin.include_tasks: tasks_intel_igpu_sriov.yaml
   when: virtualization_support == "SR-IOV"
 
 - name: Include GVT-g tasks if the system supports GVT-g
-  ansible.builtin.include_tasks: tasks_intel_igpu_gvtg.yml
+  ansible.builtin.include_tasks: tasks_intel_igpu_gvtg.yaml
   when: virtualization_support == "GVT-g"
