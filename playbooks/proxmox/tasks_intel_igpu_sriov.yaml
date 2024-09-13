@@ -55,12 +55,12 @@
 
 - name: Strip "-pve" from kernel version
   ansible.builtin.set_fact:
-    KERNEL: "{{ kernel_version.stdout | regex_replace('-pve$', '') }}"
+    kernel_version_cleaned: "{{ kernel_version.stdout | regex_replace('-pve$', '') }}"
   changed_when: false
 
 - name: Display the final kernel version
   ansible.builtin.debug:
-    msg: "Kernel version without '-pve' is {{ KERNEL }}"
+    msg: "Kernel version without '-pve' is {{ kernel_version_cleaned }}"
 
 - name: Clone the repository
   ansible.builtin.git:

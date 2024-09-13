@@ -224,3 +224,7 @@
       ansible.builtin.shell: set -o pipefail && yes | pveceph install --version reef --repository no-subscription
       when: ceph_install and not ceph_install.found
       changed_when: false
+
+# command to check for number of monitors in cluster
+# We only want 3 in the cluster so as to not waste resources.
+# ceph mon stat | grep -o 'mons at {' | wc -l
