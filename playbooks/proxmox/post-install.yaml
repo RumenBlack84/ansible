@@ -5,7 +5,8 @@
   vars:
     ansible_shell_executable: /bin/bash  # Use bash as the default shell
     kernel_version: "6.8.12-1-pve"  # Define the kernel version as a variable
-
+    ansible_ssh_pipelining: true
+    ceph_install: true
   tasks:
 # Duplicate Promox helper script functions
 # Correct VE sources
@@ -60,18 +61,28 @@
         group: root
         mode: '0644'
     # Remove Subscription Nag
-    - name: Copy no-nag-script to the target machine
+    # From this github https://github.com/Jamesits/pve-fake-subscription
+    - name: Copy fake subscription to the target machine
       ansible.builtin.copy:
-        src: files/no-nag-script  # Path to the file on the Ansible host
-        dest: /etc/apt/apt.conf.d/no-nag-script  # Path where it will be copied on the target
+        src: files/pve-fake-subscription.deb  # Path to the file on the Ansible host
+        dest: /tmp/pve-fake-subscription.deb  # Path where it will be copied on the target
         owner: root
         group: root
         mode: '0644'
-
-    - name: Reinstall proxmox-widget-toolkit  # noqa command-instead-of-module
-      ansible.builtin.command: apt-get install --reinstall -y proxmox-widget-toolkit
-      register: reinstall_result
-      changed_when: reinstall_result.rc == 0
+    - name: Check if the package is installed
+      ansible.builtin.command: dpkg-query -W -f='${Status}' pve-fake-subscription
+      register: package_status
+      changed_when: false
+    - name: Install the .deb package using dpkg
+      ansible.builtin.command:
+        cmd: dpkg -i /tmp/pve-fake-subscription.deb
+      when: package_status.stdout is not search("install ok installed")
+      changed_when: false
+    - name: Add entry to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 shop.maurer-it.com"
+        state: present
 
     # Update now that repos are fixed
     - name: Upgrade all packages
@@ -200,3 +211,16 @@
     - name: If an intel igpu is found run through the tasks to check for GVT-g or sr-iov
       ansible.builtin.include_tasks: check-for-intel-igpu.yaml
       when: igpu_check.rc == 0
+
+    - name: Check if Ceph package is installed
+      ansible.builtin.apt:
+        name: ceph
+        state: present
+      register: ceph_installed
+      check_mode: true  # Only check, do not make any changes
+      when: ceph_install
+
+    - name: If ceph variable is set to true in playbook we will install ceph now
+      ansible.builtin.shell: set -o pipefail && yes | pveceph install --version reef --repository no-subscription
+      when: ceph_install and not ceph_install.found
+      changed_when: false

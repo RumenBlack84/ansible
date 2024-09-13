@@ -51,6 +51,7 @@
 - name: Get current kernel version
   ansible.builtin.command: uname -r
   register: kernel_version
+  changed_when: false
 
 - name: Strip "-pve" from kernel version
   ansible.builtin.set_fact:
@@ -138,17 +139,19 @@
 - name: Run lspci and grep for VGA
   ansible.builtin.command: "lspci | grep VGA"
   register: lspci_vga_output
+  changed_when: false
 
 - name: Run dmesg and grep for i915
   ansible.builtin.command: "dmesg | grep i915"
   register: dmesg_i915_output
+  changed_when: false
 
 - name: Print lspci VGA output
-  debug:
+  ansible.builtin.debug:
     msg: "lspci VGA output:\n{{ lspci_vga_output.stdout }}"
 
 - name: Print dmesg i915 output
-  debug:
+  ansible.builtin.debug:
     msg: "dmesg i915 output:\n{{ dmesg_i915_output.stdout }}"
 
 - name: Notify of next steps
