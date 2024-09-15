@@ -144,12 +144,12 @@
   when: reboot_result is defined
 
 - name: Run lspci and grep for VGA
-  ansible.builtin.command: "lspci | grep VGA"
+  ansible.builtin.shell: "set -o pipefail && lspci | grep VGA"
   register: lspci_vga_output
   changed_when: false
 
 - name: Run dmesg and grep for i915
-  ansible.builtin.command: "dmesg | grep i915"
+  ansible.builtin.shell: "set -o pipefail && dmesg | grep i915"
   register: dmesg_i915_output
   changed_when: false
 
