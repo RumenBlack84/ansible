@@ -73,6 +73,7 @@
       ansible.builtin.shell: dpkg-query -W -f='${Status}' pve-fake-subscription
       register: package_status
       changed_when: false
+      failed_when: package_check.rc not in [0, 1]
     - name: Install the .deb package using dpkg
       ansible.builtin.command:
         cmd: dpkg -i /tmp/pve-fake-subscription.deb
