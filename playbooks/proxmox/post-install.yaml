@@ -220,8 +220,8 @@
       register: ceph_installed
       check_mode: true  # Only check, do not make any changes
       when: ceph_install
-      ignore_errors: true 
-      #will likely be a lot if its not installed we are just gathering intel anyway
+      ignore_errors: true
+      # will likely be a lot if its not installed we are just gathering intel anyway
 
     - name: If ceph variable is set to true in playbook we will install ceph now
       ansible.builtin.shell: set -o pipefail && yes | pveceph install --version reef --repository no-subscription
