@@ -92,9 +92,16 @@
   ansible.builtin.debug:
     msg: "The DKMS package version is {{ dkms_ver }}"
 
+- name: Check if the i915-sriov-dkms module is installed
+  ansible.builtin.command:
+    cmd: dkms status
+  register: dkms_check
+  changed_when: false
+
 - name: Add the i915-sriov-dkms module using DKMS
   ansible.builtin.command:
     cmd: dkms add /tmp/i915-sriov-dkms/
+  when: "'i915-sriov-dkms' not in dkms_check.stdout"
 
 - name: Install the i915-sriov-dkms module using DKMS
   ansible.builtin.command: dkms install -m i915-sriov-dkms -v {{ dkms_ver }} -k {{ ansible_kernel }} --force -j 1
