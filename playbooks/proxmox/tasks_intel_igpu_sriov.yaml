@@ -65,7 +65,7 @@
 - name: Clone the repository
   ansible.builtin.git:
     repo: 'https://github.com/strongtz/i915-sriov-dkms.git'
-    version: main
+    version: master
     dest: /tmp/i915-sriov-dkms
 
 - name: Backup the dkms.conf file
