@@ -70,7 +70,7 @@
         group: root
         mode: '0644'
     - name: Check if the package is installed
-      ansible.builtin.command: dpkg-query -W -f='${Status}' pve-fake-subscription
+      ansible.builtin.shell: dpkg-query -W -f='${Status}' pve-fake-subscription
       register: package_status
       changed_when: false
     - name: Install the .deb package using dpkg
