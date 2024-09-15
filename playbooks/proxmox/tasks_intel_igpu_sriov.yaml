@@ -81,7 +81,7 @@
     replace: ''
 
 - name: Extract PACKAGE_VERSION from dkms.conf
-  ansible.builtin.command: grep 'PACKAGE_VERSION=' ~/i915-sriov-dkms/dkms.conf
+  ansible.builtin.command: grep 'PACKAGE_VERSION=' /tmp/i915-sriov-dkms/dkms.conf
   register: dkms_version_line
 
 - name: Set the dkms version
