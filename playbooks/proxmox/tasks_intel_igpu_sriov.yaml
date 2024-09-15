@@ -117,7 +117,7 @@
     mode: '0644'
 
 - name: Update initramfs for all kernels
-  ansible.builtin.command: update-initramfs -u -k all
+  ansible.builtin.shell: update-initramfs -u -k all
 
 - name: Refresh Boot
   ansible.builtin.command: "proxmox-boot-tool refresh"
