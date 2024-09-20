@@ -8,7 +8,7 @@
     - name: Gather package facts
       ansible.builtin.package_facts:
         manager: apt
-    - name: Copy somefile.conf from role's files directory
+    - name: Copy agent file
       ansible.builtin.copy:
         src: files/check-mk-agent_2.3.0p9-1_all.deb  # Ansible automatically looks inside the role's files/
         dest: /tmp/check-mk-agent_2.3.0p9-1_all.deb
@@ -25,7 +25,7 @@
     - name: Register CMK agent
       ansible.builtin.shell: >
         cmk-agent-ctl register
-        --hostname {{ inventory_hostname }}
+        --hostname {{ ansible_hostname }}
         --server 192.168.0.68
         --site monitoring
         --user '{{ cmk_user }}'
