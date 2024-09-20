@@ -34,6 +34,6 @@
         --password '{{ cmk_password }}'
       args:
         executable: /bin/bash
-      # no_log: true
+      no_log: true
       when: "'check_mk_agent' not in ansible_facts.packages"
       changed_when: false
