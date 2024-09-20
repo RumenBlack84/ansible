@@ -2,6 +2,8 @@
 - name: Ensure Checkmk Agent is Installed
   hosts: all
   become: true
+  vars_files:
+    - vars/cmkvault.yml
   tasks:
     - name: Gather package facts
       ansible.builtin.package_facts:
@@ -27,7 +29,7 @@
         --hostname {{ inventory_hostname }}
         --server 192.168.0.68
         --site monitoring
-        --user cmkadmin
+        --user '{{ cmk_user }}'
         --password '{{ cmk_password }}'
       args:
         executable: /bin/bash
