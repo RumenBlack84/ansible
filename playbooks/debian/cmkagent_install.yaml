@@ -5,7 +5,7 @@
   vars:
     ansible_ssh_pipelining: true
   vars_files:
-    - vars/cmkvault.yml
+    - vars/cmkvault.yaml
   tasks:
     - name: Gather package facts
       ansible.builtin.package_facts:
