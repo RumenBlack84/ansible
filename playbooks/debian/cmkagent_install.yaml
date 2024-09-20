@@ -2,9 +2,10 @@
 - name: Ensure Checkmk Agent is Installed
   hosts: all
   become: true
+  vars:
+    ansible_ssh_pipelining: true
   vars_files:
     - vars/cmkvault.yml
-    - ansible_ssh_pipelining: true
   tasks:
     - name: Gather package facts
       ansible.builtin.package_facts:
