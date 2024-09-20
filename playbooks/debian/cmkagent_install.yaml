@@ -30,7 +30,7 @@
         --hostname {{ ansible_hostname }}
         --server 192.168.0.68
         --site monitoring
-        --user '{{ cmk_user }}'
+        --user cmkadmin
         --password '{{ cmk_password }}'
       args:
         executable: /bin/bash
