@@ -2,6 +2,8 @@
 - name: Run Proxmox VE Post Install Process
   hosts: all
   become: true
+  vars_files:
+    - vars/cmkvault.yaml
   vars:
     ansible_shell_executable: /bin/bash  # Use bash as the default shell
     kernel_version: "6.8.12-1-pve"  # Define the kernel version as a variable
