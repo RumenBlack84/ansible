@@ -227,3 +227,4 @@
       ansible.builtin.shell: set -o pipefail && yes | pveceph install --version reef --repository no-subscription
       when: ceph_install and 'ceph' not in ansible_facts.packages
       changed_when: false
+      ignore_errors: true # set because using a no-subscription repo triggers an error code but still installs
