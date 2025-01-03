@@ -9,6 +9,7 @@
     kernel_version: "6.8"  # Latest proxmox stable kernel
     ansible_ssh_pipelining: true
     ceph_install: false
+    connectx_sriov: true # Enable sr-iov for Mellanox ConnectX cards
   tasks:
 # Duplicate Promox helper script functions
 # Correct VE sources
@@ -144,6 +145,24 @@
       changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
       when: efi_partitions is defined
 
+    - name: Overwrite /etc/modprobe.d/mlx4_core.conf with SR-IOV configuration
+      ansible.builtin.copy:
+        content: |
+          options mlx4_core num_vfs=4,4,0 port_type_array=2,2 probe_vf=4,4,0 probe_vf=4,4,0
+          options mlx4_core enable_sys_tune=1
+          options mlx4_en inline_thold=0
+          options mlx4_core log_num_mgm_entry_size=-7
+        dest: /etc/modprobe.d/mlx4_core.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: connectx_sriov is true
+
+    - name: Update initramfs for all kernels
+      ansible.builtin.command: update-initramfs -u -k all
+      when: connectx_sriov is true
+      changed_when: false
+
     - name: Reboot the system
       ansible.builtin.reboot:
         reboot_timeout: 600  # Adjust the timeout depending on how long the system takes to reboot
@@ -182,3 +201,9 @@
       when: ceph_install and 'ceph' not in ansible_facts.packages
       changed_when: false
       ignore_errors: true # set because using a no-subscription repo triggers an error code but still installs
+      register: ignore_errors_register
+
+    - name: Show any errors from ceph above just in case
+      ansible.builtin.debug:
+        msg: "Errors repored from ceph install {{ ignore_errors_register }}"
+      when: ceph_install and 'ceph' not in ansible_facts.packages
