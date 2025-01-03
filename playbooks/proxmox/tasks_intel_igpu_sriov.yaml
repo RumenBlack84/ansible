@@ -3,7 +3,7 @@
   ansible.builtin.debug:
     msg: "Starting install procedure for sr-iov igpu virtualization"
 
-- name: Install mokutil dependancy
+- name: Ensure mokutil dependancy is installed
   ansible.builtin.apt:
     name: mokutil
     state: present
@@ -27,84 +27,63 @@
     state: present
     update_cache: true
 
-- name: Remove any pre-existing i915-sriov-dkms files part 1
-  ansible.builtin.file:
-    path: "/var/lib/dkms/i915-sriov-dkms*"
-    state: absent
-  with_fileglob:
-    - "/var/lib/dkms/i915-sriov-dkms*"
+- name: Query GitHub API for the latest release
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/strongtz/i915-sriov-dkms/releases/latest"
+    method: GET
+    return_content: true
+    headers:
+      Accept: "application/vnd.github.v3+json"
+  register: github_release
 
-- name: Remove any pre-existing i915-sriov-dkms files part 2
-  ansible.builtin.file:
-    path: "/usr/src/i915-sriov-dkms*"
-    state: absent
-  with_fileglob:
-    - "/usr/src/i915-sriov-dkms*"
-
-- name: Remove any pre-existing i915-sriov-dkms files part 3
-  ansible.builtin.file:
-    path: "/tmp/i915-sriov-dkms"
-    state: absent
-  with_fileglob:
-    - "/tmp/i915-sriov-dkms*"
-
-- name: Get current kernel version
-  ansible.builtin.command: uname -r
-  register: kernel_version
-  changed_when: false
-
-- name: Strip "-pve" from kernel version
-  ansible.builtin.set_fact:
-    kernel_version_cleaned: "{{ kernel_version.stdout | regex_replace('-pve$', '') }}"
-  changed_when: false
-
-- name: Display the final kernel version
+- name: Raw release info
   ansible.builtin.debug:
-    msg: "Kernel version without '-pve' is {{ kernel_version_cleaned }}"
+    msg: "github release raw: {{ github_release }}"
 
-- name: Clone the repository
-  ansible.builtin.git:
-    repo: 'https://github.com/strongtz/i915-sriov-dkms.git'
-    version: master
-    dest: /tmp/i915-sriov-dkms
-
-- name: Backup the dkms.conf file
-  ansible.builtin.copy:
-    src: /tmp/i915-sriov-dkms/dkms.conf
-    dest: /tmp/i915-sriov-dkms/dkms.conf.bak
-    remote_src: true
-
-- name: Remove '-j$(nproc)' from dkms.conf
-  ansible.builtin.replace:
-    path: /tmp/i915-sriov-dkms/dkms.conf
-    regexp: ' -j\$\(nproc\)'
-    replace: ''
-
-- name: Extract PACKAGE_VERSION from dkms.conf
-  ansible.builtin.command: grep 'PACKAGE_VERSION=' /tmp/i915-sriov-dkms/dkms.conf
-  register: dkms_version_line
-
-- name: Set the dkms version
+- name: Extract the latest version and asset URL
   ansible.builtin.set_fact:
-    dkms_ver: "{{ dkms_version_line.stdout.split('=')[1] | trim('\"') }}"
+    latest_version: "{{ github_release.json.tag_name }}"
+    asset_url: >-
+      {{
+        github_release.json.assets
+        | selectattr('name', 'equalto',
+                     'i915-sriov-dkms_{{ github_release.json.tag_name }}_amd64.deb')
+        | map(attribute='browser_download_url')
+        | first
+      }}
 
-- name: Display the extracted PACKAGE_VERSION
-  ansible.builtin.debug:
-    msg: "The DKMS package version is {{ dkms_ver }}"
+- name: Ensure the asset URL was found
+  ansible.builtin.fail:
+    msg: "The asset URL could not be found for version {{ latest_version }}."
+  when: asset_url is not defined
 
-- name: Check if the i915-sriov-dkms module is installed
-  ansible.builtin.command:
-    cmd: dkms status
-  register: dkms_check
+- name: Check if the package is already installed
+  ansible.builtin.shell: "dpkg-query -W -f='${Version}' i915-sriov-dkms"
+  register: installed_version
+  failed_when: false
   changed_when: false
 
-- name: Add the i915-sriov-dkms module using DKMS
-  ansible.builtin.command:
-    cmd: dkms add /tmp/i915-sriov-dkms/
-  when: "'i915-sriov-dkms' not in dkms_check.stdout"
+- name: Skip installation if the version is already installed
+  ansible.builtin.debug:
+  msg: "The latest version {{ latest_version }} is already installed."
+  when: latest_version in installed_version.stdout
 
-- name: Install the i915-sriov-dkms module using DKMS
-  ansible.builtin.command: dkms install -m i915-sriov-dkms -v {{ dkms_ver }} -k {{ ansible_kernel }} --force -j 1
+- name: Download the .deb file
+  ansible.builtin.get_url:
+    url: "{{ asset_url }}"
+    dest: "/tmp/i915-sriov-dkms_{{ latest_version }}_amd64.deb"
+    mode: '0644'
+  when: latest_version not in installed_version.stdout
+
+- name: Install the .deb package
+  ansible.builtin.apt:
+    deb: "/tmp/i915-sriov-dkms_{{ latest_version }}_amd64.deb"
+  when: latest_version not in installed_version.stdout
+
+- name: Debug the installed version
+  ansible.builtin.debug:
+    msg: "i915-sriov-dkms version {{ latest_version }} has been installed."
+  when: latest_version not in installed_version.stdout
 
 - name: Set Grub kernel parameters
   ansible.builtin.lineinfile:
