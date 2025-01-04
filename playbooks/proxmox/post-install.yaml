@@ -9,6 +9,7 @@
     kernel_version: "6.8"  # Latest proxmox stable kernel
     ansible_ssh_pipelining: true
     ceph_install: false
+    connectx: true
   tasks:
 # Duplicate Promox helper script functions
 # Correct VE sources
@@ -123,11 +124,33 @@
     - name: Install ls-iommu
       ansible.builtin.include_tasks: ls-iommu.yaml
 
+    - name: Install mstflint for connectx sr-iov
+      ansible.builtin.apt:
+        name: mstflint
+        state: present
+        update_cache: true
+      when: connectx is true
+
+    - name: Overwrite /etc/modprobe.d/mlx4_core.conf with SR-IOV configuration
+      ansible.builtin.copy:
+        content: |
+          options mlx4_core num_vfs=4,4,0 port_type_array=2,2 probe_vf=4,4,0 probe_vf=4,4,0
+          options mlx4_core enable_sys_tune=1
+          options mlx4_en inline_thold=0
+          options mlx4_core log_num_mgm_entry_size=-7
+        dest: /etc/modprobe.d/mlx4_core.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: connectx is true
+
+
     - name: Install specific kernel headers
       ansible.builtin.apt:
         name: pve-headers-{{ kernel_version }}
         state: present
         update_cache: true
+
 
     - name: Set Grub kernel parameters
       ansible.builtin.lineinfile:
