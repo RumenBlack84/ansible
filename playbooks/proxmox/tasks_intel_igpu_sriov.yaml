@@ -27,35 +27,16 @@
     state: present
     update_cache: true
 
-- name: Query GitHub API for the latest release
-  ansible.builtin.uri:
-    url: "https://api.github.com/repos/strongtz/i915-sriov-dkms/releases/latest"
-    method: GET
-    return_content: true
-    headers:
-      Accept: "application/vnd.github.v3+json"
-  register: github_release
+- name: Get latest release of a public repository
+  community.general.github_release:
+    user: strongtz
+    repo: i915-sriov-dkms
+    action: latest_release
+  register: release
 
-- name: Raw release info
+- name: Print Latest release
   ansible.builtin.debug:
-    msg: "github release raw: {{ github_release }}"
-
-- name: Extract the latest version and asset URL
-  ansible.builtin.set_fact:
-    latest_version: "{{ github_release.json.tag_name }}"
-    asset_url: >-
-      {{
-        github_release.json.assets
-        | selectattr('name', 'equalto',
-                     'i915-sriov-dkms_{{ github_release.json.tag_name }}_amd64.deb')
-        | map(attribute='browser_download_url')
-        | first
-      }}
-
-- name: Ensure the asset URL was found
-  ansible.builtin.fail:
-    msg: "The asset URL could not be found for version {{ latest_version }}."
-  when: asset_url is not defined
+    var: release
 
 - name: Check if the package is already installed
   ansible.builtin.shell: "dpkg-query -W -f='${Version}' i915-sriov-dkms"
@@ -66,24 +47,24 @@
 - name: Skip installation if the version is already installed
   ansible.builtin.debug:
     msg: "The latest version {{ latest_version }} is already installed."
-  when: latest_version in installed_version.stdout
+  when: release.tag in installed_version.stdout
 
-- name: Download the .deb file
-  ansible.builtin.get_url:
-    url: "{{ asset_url }}"
-    dest: "/tmp/i915-sriov-dkms_{{ latest_version }}_amd64.deb"
-    mode: '0644'
-  when: latest_version not in installed_version.stdout
+- name: Download Binary
+  ansible.builtin.unarchive:
+    src: https://github.com/strongtz/i915-sriov-dkms/releases/download/{{release.tag}}/i915-sriov-dkms_{{release.tag}}_amd64.deb
+    dest: /tmp
+    remote_src: true
+  when: release.tag not in installed_version.stdout
 
 - name: Install the .deb package
   ansible.builtin.apt:
     deb: "/tmp/i915-sriov-dkms_{{ latest_version }}_amd64.deb"
-  when: latest_version not in installed_version.stdout
+  when: release.tag not in installed_version.stdout
 
 - name: Debug the installed version
   ansible.builtin.debug:
     msg: "i915-sriov-dkms version {{ latest_version }} has been installed."
-  when: latest_version not in installed_version.stdout
+  when: release.tag not in installed_version.stdout
 
 - name: Set Grub kernel parameters
   ansible.builtin.lineinfile:
