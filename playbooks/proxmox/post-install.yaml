@@ -94,6 +94,35 @@
         upgrade: dist
         autoremove: true
 
+    - name: Install Nala instead of apt
+      ansible.builtin.apt:
+        name: nala
+        state: present
+        update_cache: true
+
+    - name: Set apt aliases to Nala instead (at least for root)
+      ansible.builtin.blockinfile:
+        path: /root/.bashrc
+        marker: "# {mark} Ansible managed block for custom functions"
+        block: |
+          apt() {
+            command nala "$@"
+          }
+          sudo() {
+            if [ "$1" = "apt" ]; then
+              shift
+              command sudo nala "$@"
+            else
+              command sudo "$@"
+            fi
+          }
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install ls-iommu
+      ansible.builtin.include_tasks: ls-iommu.yaml
+
     - name: Install specific kernel headers
       ansible.builtin.apt:
         name: pve-headers-{{ kernel_version }}
@@ -106,19 +135,16 @@
         regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
         backup: true
-      when: pinned_kernel.stdout != kernel_version
 
     # Changing bootloader to use grub instead of systemd
     - name: Find EFI partitions
       ansible.builtin.command: blkid -t TYPE=vfat -o device
       register: efi_partition_output
       changed_when: false
-      when: pinned_kernel.stdout != kernel_version
 
     - name: Set EFI partitions as a list
       ansible.builtin.set_fact:
         efi_partitions: "{{ efi_partition_output.stdout_lines }}"
-      when: pinned_kernel.stdout != kernel_version
 
     - name: Umount /efi/boot
       ansible.posix.mount:
