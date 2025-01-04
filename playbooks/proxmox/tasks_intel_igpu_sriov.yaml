@@ -27,44 +27,22 @@
     state: present
     update_cache: true
 
-- name: Get latest release of a public repository
-  community.general.github_release:
-    user: strongtz
-    repo: i915-sriov-dkms
-    action: latest_release
-  register: release
-
-- name: Print Latest release
-  ansible.builtin.debug:
-    var: release
-
 - name: Check if the package is already installed
   ansible.builtin.shell: "dpkg-query -W -f='${Version}' i915-sriov-dkms"
   register: installed_version
   failed_when: false
   changed_when: false
 
-- name: Skip installation if the version is already installed
-  ansible.builtin.debug:
-    msg: "The latest version {{ latest_version }} is already installed."
-  when: release.tag in installed_version.stdout
-
-- name: Download Binary
-  ansible.builtin.unarchive:
-    src: https://github.com/strongtz/i915-sriov-dkms/releases/download/{{release.tag}}/i915-sriov-dkms_{{release.tag}}_amd64.deb
-    dest: /tmp
-    remote_src: true
-  when: release.tag not in installed_version.stdout
+# this is a static hack for now, I either need to make my own ppa or figure out the github code for this so it pulls the latest release
+- name: Download a file from a URL
+  ansible.builtin.get_url:
+    url: https://github.com/strongtz/i915-sriov-dkms/releases/download/2024.12.30/i915-sriov-dkms_2024.12.30_amd64.deb
+    dest: /tmp/i915-sriov-dkms_2024.12.30_amd64.deb
+  when: "'2024.12.30' not in installed_version"
 
 - name: Install the .deb package
   ansible.builtin.apt:
-    deb: "/tmp/i915-sriov-dkms_{{ latest_version }}_amd64.deb"
-  when: release.tag not in installed_version.stdout
-
-- name: Debug the installed version
-  ansible.builtin.debug:
-    msg: "i915-sriov-dkms version {{ latest_version }} has been installed."
-  when: release.tag not in installed_version.stdout
+    deb: /tmp/i915-sriov-dkms_2024.12.30_amd64.deb
 
 - name: Set Grub kernel parameters
   ansible.builtin.lineinfile:
