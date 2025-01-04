@@ -77,6 +77,7 @@
       register: package_status
       changed_when: false
       failed_when: package_status.rc not in [0, 1]
+
     - name: Install the .deb package using dpkg
       ansible.builtin.command:
         cmd: dpkg -i /tmp/pve-fake-subscription.deb
@@ -151,6 +152,9 @@
         state: present
         update_cache: true
 
+    - name: Update initramfs for all kernels
+      ansible.builtin.command: update-initramfs -u -k all
+      changed_when: false
 
     - name: Set Grub kernel parameters
       ansible.builtin.lineinfile:
