@@ -65,7 +65,7 @@
 
 - name: Skip installation if the version is already installed
   ansible.builtin.debug:
-  msg: "The latest version {{ latest_version }} is already installed."
+    msg: "The latest version {{ latest_version }} is already installed."
   when: latest_version in installed_version.stdout
 
 - name: Download the .deb file
