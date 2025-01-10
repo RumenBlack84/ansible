@@ -10,6 +10,8 @@
     ansible_ssh_pipelining: true
     ceph_install: false
     connectx: true
+    zfsiscsi: true
+    truenas_ip: 192.168.0.252
   tasks:
 # Duplicate Promox helper script functions
 # Correct VE sources
@@ -96,6 +98,10 @@
         upgrade: dist
         autoremove: true
 
+    - name: Install zfs over iscsi for Truenas/Proxmox integration
+      ansible.builtin.include_tasks: truenas-proxmox-iscsi.yaml
+      when: zfsiscsi is true
+
     - name: Install Nala instead of apt
       ansible.builtin.apt:
         name: nala
@@ -122,6 +128,12 @@
         group: root
         mode: '0644'
 
+    - name: Install corosync-qdevice
+      ansible.builtin.apt:
+        name: corosync-qdevice
+        state: present
+        update_cache: true
+
     - name: Install ls-iommu
       ansible.builtin.include_tasks: ls-iommu.yaml
 
@@ -145,6 +157,20 @@
         mode: '0644'
       when: connectx is true
 
+    - name: Run bootctl status to check for systemd-boot
+      ansible.builtin.command: bootctl status
+      register: bootctl_output
+      ignore_errors: true
+      changed_when: false
+
+    - name: Parse bootctl status output to check for systemd-boot
+      ansible.builtin.set_fact:
+        systemd_boot_disabled: "{{ 'systemd-boot not installed' not in bootctl_output.stdout }}"
+      when: bootctl_output.rc == 0
+
+    - name: Debug the result
+      ansible.builtin.debug:
+        msg: "Systemd-boot enabled: {{ systemd_boot_enabled }}"
 
     - name: Install specific kernel headers
       ansible.builtin.apt:

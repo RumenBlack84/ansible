@@ -38,11 +38,15 @@
   ansible.builtin.get_url:
     url: https://github.com/strongtz/i915-sriov-dkms/releases/download/2024.12.30/i915-sriov-dkms_2024.12.30_amd64.deb
     dest: /tmp/i915-sriov-dkms_2024.12.30_amd64.deb
+    owner: root
+    group: root
+    mode: '0644'
   when: "'2024.12.30' not in installed_version"
 
 - name: Install the .deb package
   ansible.builtin.apt:
     deb: /tmp/i915-sriov-dkms_2024.12.30_amd64.deb
+  when: "'2024.12.30' not in installed_version"
 
 - name: Set Grub kernel parameters
   ansible.builtin.lineinfile:
@@ -50,9 +54,10 @@
     regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
     line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt i915.enable_guc=3 i915.max_vfs=7"'
     backup: true
+  register: grub-result
 
 # In every system I've seen this has been 00:02.0 however if issues are encountered verify with lspci | grep VGA
-- name: Overwrite /etc/sysfs.conf with SR-IOV configuration
+- name: Overwrite /etc/sysfs.conf with SR-IOV configuration and record in sysfs-result
   ansible.builtin.copy:
     content: |
       devices/pci0000:00/0000:00:02.0/sriov_numvfs = 7
@@ -60,14 +65,18 @@
     owner: root
     group: root
     mode: '0644'
+  register: sysfs-result
 
 - name: Update initramfs for all kernels
   ansible.builtin.shell: update-initramfs -u -k all
+  when: grub-result.changed or sysfs-result.changed
+  register: initramfs-result
 
 - name: Refresh Boot
   ansible.builtin.command: "proxmox-boot-tool refresh"
   register: proxmox_boot_refresh
   changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
+  when: initramfs-result.changed
 
 - name: Reboot the system
   ansible.builtin.reboot:

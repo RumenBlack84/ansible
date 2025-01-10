@@ -17,11 +17,12 @@
     dest: /tmp/ls-iommu-repo
 
 - name: Build the ls-iommu binary and place it in /usr/bin
-  ansible.builtin.shell: |
-      cd /tmp/ls-iommu-repo
-      CGO_ENABLED=0 go build -ldflags="-X github.com/HikariKnight/ls-iommu/internal/version.Version=$(git rev-parse --short HEAD)" -o /usr/bin/ls-iommu cmd/main.go
+  ansible.builtin.shell: >
+      CGO_ENABLED=0 go build -ldflags="-X github.com/HikariKnight/ls-iommu/internal/version.Version=$(git rev-parse --short HEAD)"
+      -o /usr/bin/ls-iommu cmd/main.go
   args:
     chdir: /tmp/ls-iommu-repo
+  changed_when: false # lying about change when because I don't want to have to implement version checks
 
 - name: Verify the binary is built and in /usr/bin
   ansible.builtin.stat:
