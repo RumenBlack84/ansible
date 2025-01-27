@@ -1,0 +1,11 @@
+all:
+  children:
+    proxmox:
+      hosts:
+        Aesir:
+          ansible_host: 192.168.0.5
+        Vanir: 
+          ansible_host: 192.168.0.6
+    ubuntu:
+      hosts:
+        db1.example.com:

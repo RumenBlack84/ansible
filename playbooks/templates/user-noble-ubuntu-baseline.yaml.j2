@@ -1,0 +1,67 @@
+#cloud-config
+# all variables are to be populated by ansible, if using manually populate it yourself.
+hostname: {{ ci_hostname }}
+manage_etc_hosts: true
+fqdn: {{ ci_fqdn }}
+packages:
+  - sudo
+  - curl
+  - zsh
+  - vim
+  - git
+  - fontconfig
+  - nano
+  - cifs-utils
+  - nfs-common
+  - qemu-guest-agent
+  - nala
+  - net-tools
+  - htop
+  - openssh-server
+  - unzip
+ssh_pwauth: false
+users:
+  - default
+  - name: {{ ci_username }}
+    sudo: ALL=(ALL) NOPASSWD:ALL # Remove if passwordless sudo is not desired
+    groups: sudo # Fallback for password sudo
+    ssh_authorized_keys:
+      - {{ ci_ssh_key }}
+    password: {{ ci_password }}
+    shell: /bin/zsh
+  
+package_upgrade: true
+runcmd:
+  - nala fetch --auto
+  - |
+    cat << 'EOF' > /home/{{ ci_username }}/.zshrc
+    apt() {
+      command nala "$@"
+    }
+    sudo() {
+      if [ "$1" = "apt" ]; then
+        shift
+        command sudo nala "$@"
+      else
+        command sudo "$@"
+      fi
+    }
+    export PATH=$PATH:~/.local/bin
+    eval "$(oh-my-posh init zsh)"
+    alias neofetch=fastfetch
+    neofetch
+    EOF
+  - chmod 0644 /home/{{ ci_username }}/.zshrc
+  - chown {{ ci_username }} /home/{{ ci_username }}/.zshrc
+  - chgrp {{ ci_username }} /home/{{ ci_username }}/.zshrc
+  - add-apt-repository ppa:zhangsongcui3371/fastfetch -y
+  - apt update
+  - apt install fastfetch -y
+  - runuser -l {{ ci_username }} -c "curl -s https://ohmyposh.dev/install.sh | bash -s"
+  - |
+    bash -c '
+    latest=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/tags" | jq -r '.[0].name')
+    download_url="https://github.com/ryanoasis/nerd-fonts/releases/download/${latest}/Meslo.tar.xz"
+    curl -L -o /tmp/Meslo.tar.xz ${download_url}
+    tar -xJf /tmp/Meslo.tar.xz -C /usr/share/fonts
+    '

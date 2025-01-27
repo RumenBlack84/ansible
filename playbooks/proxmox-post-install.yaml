@@ -1,0 +1,269 @@
+---
+- name: Run Proxmox VE Post Install Process
+  hosts: all
+  become: true
+  vars_files:
+    - vault/cmkvault.yaml
+  vars:
+    ansible_shell_executable: /bin/bash  # Use bash as the default shell
+    kernel_version: "6.8"  # Latest proxmox stable kernel
+    ansible_ssh_pipelining: true
+    ceph_install: false
+    connectx: true
+    zfsiscsi: true
+    truenas_ip: 192.168.0.252
+  tasks:
+# Duplicate Promox helper script functions
+# Correct VE sources
+    - name: Correcting Proxmox VE Sources
+      block:
+        - name: Update sources.list
+          ansible.builtin.copy:
+            content: |
+              deb http://deb.debian.org/debian bookworm main contrib
+              deb http://deb.debian.org/debian bookworm-updates main contrib
+              deb http://security.debian.org/debian-security bookworm-security main contrib
+            dest: /etc/apt/sources.list
+            owner: root
+            group: root
+            mode: '0644'
+
+        - name: Add non-free firmware configuration
+          ansible.builtin.copy:
+            content: |
+              APT::Get::Update::SourceListWarnings::NonFreeFirmware "false";
+            dest: /etc/apt/apt.conf.d/no-bookworm-firmware.conf
+            owner: root
+            group: root
+            mode: '0644'
+    # Disable enterprise repos
+    - name: Ensure pve-enterprise repository is disabled
+      ansible.builtin.lineinfile:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        regexp: '^deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise'
+        line: '# deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise'
+        mode: "0644"
+        create: true
+    # Enable free no sub repo
+    - name: Enable 'pve-no-subscription' repository
+      ansible.builtin.copy:
+        content: |
+          deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+        dest: /etc/apt/sources.list.d/pve-install-repo.list
+        owner: root
+        group: root
+        mode: '0644'
+    # Fix the ceph repos
+    - name: Correcting 'ceph package repositories'
+      ansible.builtin.copy:
+        content: |
+          # deb https://enterprise.proxmox.com/debian/ceph-quincy bookworm enterprise
+          # deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription
+          # deb https://enterprise.proxmox.com/debian/ceph-reef bookworm enterprise
+          # deb http://download.proxmox.com/debian/ceph-reef bookworm no-subscription
+        dest: /etc/apt/sources.list.d/ceph.list
+        owner: root
+        group: root
+        mode: '0644'
+    # Remove Subscription Nag
+    # From this github https://github.com/Jamesits/pve-fake-subscription
+    - name: Copy fake subscription to the target machine
+      ansible.builtin.copy:
+        src: files/pve-fake-subscription.deb  # Path to the file on the Ansible host
+        dest: /tmp/pve-fake-subscription.deb  # Path where it will be copied on the target
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Check if the package is installed
+      ansible.builtin.shell: dpkg-query -W -f='${Status}' pve-fake-subscription
+      register: package_status
+      changed_when: false
+      failed_when: package_status.rc not in [0, 1]
+
+    - name: Install the .deb package using dpkg
+      ansible.builtin.command:
+        cmd: dpkg -i /tmp/pve-fake-subscription.deb
+      when: package_status.stdout is not search("install ok installed")
+      changed_when: false
+    - name: Add entry to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 shop.maurer-it.com"
+        state: present
+
+    # Update now that repos are fixed
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        autoremove: true
+
+    - name: Install zfs over iscsi for Truenas/Proxmox integration
+      ansible.builtin.include_tasks: truenas-proxmox-iscsi.yaml
+      when: zfsiscsi is true
+
+    - name: Install Nala instead of apt
+      ansible.builtin.apt:
+        name: nala
+        state: present
+        update_cache: true
+
+    - name: Set apt aliases to Nala instead (at least for root)
+      ansible.builtin.blockinfile:
+        path: /root/.bashrc
+        marker: "# {mark} Ansible managed block for custom functions"
+        block: |
+          apt() {
+            command nala "$@"
+          }
+          sudo() {
+            if [ "$1" = "apt" ]; then
+              shift
+              command sudo nala "$@"
+            else
+              command sudo "$@"
+            fi
+          }
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install corosync-qdevice
+      ansible.builtin.apt:
+        name: corosync-qdevice
+        state: present
+        update_cache: true
+
+    - name: Install ls-iommu
+      ansible.builtin.include_tasks: ls-iommu.yaml
+
+    - name: Install mstflint for connectx sr-iov
+      ansible.builtin.apt:
+        name: mstflint
+        state: present
+        update_cache: true
+      when: connectx is true
+
+    - name: Overwrite /etc/modprobe.d/mlx4_core.conf with SR-IOV configuration
+      ansible.builtin.copy:
+        content: |
+          options mlx4_core num_vfs=4,4,0 port_type_array=2,2 probe_vf=4,4,0 probe_vf=4,4,0
+          options mlx4_core enable_sys_tune=1
+          options mlx4_en inline_thold=0
+          options mlx4_core log_num_mgm_entry_size=-7
+        dest: /etc/modprobe.d/mlx4_core.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: connectx is true
+
+    - name: Run bootctl status to check for systemd-boot
+      ansible.builtin.command: bootctl status
+      register: bootctl_output
+      ignore_errors: true
+      changed_when: false
+
+    - name: Parse bootctl status output to check for systemd-boot
+      ansible.builtin.set_fact:
+        systemd_boot_disabled: "{{ 'systemd-boot not installed' not in bootctl_output.stdout }}"
+      when: bootctl_output.rc == 0
+
+    - name: Debug the result
+      ansible.builtin.debug:
+        msg: "Systemd-boot enabled: {{ systemd_boot_enabled }}"
+
+    - name: Install specific kernel headers
+      ansible.builtin.apt:
+        name: pve-headers-{{ kernel_version }}
+        state: present
+        update_cache: true
+
+    - name: Update initramfs for all kernels
+      ansible.builtin.command: update-initramfs -u -k all
+      changed_when: false
+
+    - name: Set Grub kernel parameters
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
+        backup: true
+
+    # Changing bootloader to use grub instead of systemd
+    - name: Find EFI partitions
+      ansible.builtin.command: blkid -t TYPE=vfat -o device
+      register: efi_partition_output
+      changed_when: false
+
+    - name: Set EFI partitions as a list
+      ansible.builtin.set_fact:
+        efi_partitions: "{{ efi_partition_output.stdout_lines }}"
+
+    - name: Umount /efi/boot
+      ansible.posix.mount:
+        path: /boot/efi
+        state: unmounted
+      when: efi_partitions is defined
+
+    - name: Initialize Proxmox boot tool on each EFI partition
+      ansible.builtin.command: "proxmox-boot-tool init {{ item }} grub"
+      loop: "{{ efi_partitions }}"
+      when: efi_partitions is defined
+      register: proxmox_boot_init
+      changed_when: proxmox_boot_init.rc == 0 and "nothing to do" not in proxmox_boot_init.stdout
+
+    - name: Print EFI partitions for verification
+      ansible.builtin.debug:
+        msg: "EFI partitions: {{ efi_partitions }}"
+      when: efi_partitions is defined
+
+    - name: Refresh Boot
+      ansible.builtin.command: "proxmox-boot-tool refresh"
+      register: proxmox_boot_refresh
+      changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
+      when: efi_partitions is defined
+
+    - name: Reboot the system
+      ansible.builtin.reboot:
+        reboot_timeout: 600  # Adjust the timeout depending on how long the system takes to reboot
+        msg: "Rebooting the system now, waiting up to 600 seconds for it to be available again"
+      when: ansible_kernel != kernel_version
+      register: reboot_result
+
+    - name: Notify user of reboot completion
+      ansible.builtin.debug:
+        msg: "The system has rebooted and is back online."
+      when: reboot_result is defined
+
+    - name: Gather facts again after reboot
+      ansible.builtin.setup:
+
+    - name: Check if Intel iGPU is present
+      ansible.builtin.shell: set -o pipefail && lspci | grep -iq 'vga.*intel'
+      register: igpu_check
+      ignore_errors: true  # If there's no Intel iGPU, the grep command will fail
+      changed_when: false
+
+    - name: If an intel igpu is found run through the tasks to check for GVT-g or sr-iov
+      ansible.builtin.include_tasks: check-for-intel-igpu.yaml
+      when: igpu_check.rc == 0
+
+    - name: Run checkmk install
+      ansible.builtin.include_tasks: tasks_cmkagent_install.yaml
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: apt
+      when: ceph_install
+
+    - name: If ceph variable is set to true in playbook we will install ceph now
+      ansible.builtin.shell: set -o pipefail && yes | pveceph install --version reef --repository no-subscription
+      when: ceph_install and 'ceph' not in ansible_facts.packages
+      changed_when: false
+      ignore_errors: true # set because using a no-subscription repo triggers an error code but still installs
+      register: ignore_errors_register
+
+    - name: Show any errors from ceph above just in case
+      ansible.builtin.debug:
+        msg: "Errors repored from ceph install {{ ignore_errors_register }}"
+      when: ceph_install and 'ceph' not in ansible_facts.packages
