@@ -15,7 +15,7 @@
     # cloud-init.ci_username get from vault
     # ci_ipv4_address: null  # should be provided through cli or runner in cidr format e.g. 192.168.0.1/24
     # ci_ipv4_gateway: null  # should be provided through cli or runner
-    ci_target_storage: Truenas
+    ci_target_storage: TrueNas
     ci_template_id: 9000
     ci_nameserver: 192.168.0.1
   roles:
@@ -47,6 +47,14 @@
               The QM set command was;
               qm set "{{ ci_template_id }}" --cicustom "user={{ ci_user_path_datastore }},network={{ ci_network_path_datastore }}"
 
+    - name: Show the clone command used
+      ansible.builtin.debug:
+        msg: >-
+              The Clone command was;
+              qm clone "{{ ci_template_id }}" "{{ first_available_id }}"
+              --name "{{ ci_hostname }}" --full --format raw
+              --storage "{{ ci_target_storage }}" --target "{{ inventory_hostname }}"
+
     - name: Clone template to new VM
       ansible.builtin.command:
         cmd: >-
@@ -56,13 +64,6 @@
       register: clone_result
       changed_when: clone_result.rc == 0
 
-    - name: Show the clone command used
-      ansible.builtin.debug:
-        msg: >-
-              The Clone command was;
-              qm clone "{{ ci_template_id }}" "{{ first_available_id }}"
-              --name "{{ ci_hostname }}" --full --format raw
-              --storage "{{ ci_target_storage }}" --target "{{ inventory_hostname }}"
 
     - name: Debug output of clone command
       ansible.builtin.debug:
