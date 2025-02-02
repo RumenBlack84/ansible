@@ -9,12 +9,12 @@
     ci_network_path: /mnt/pve/ZoomNFS/snippets/network-noble-ubuntu-baseline.yaml
     ci_user_path_datastore: ZoomNFS:snippets/user-noble-ubuntu-baseline.yaml
     ci_network_path_datastore: ZoomNFS:snippets/network-noble-ubuntu-baseline.yaml
-    ci_hostname: null  # should be provided via cli or runner like semaphore
+    # ci_hostname: null  # should be provided via cli or runner like semaphore
     ci_domain: grant.onl # This is assuming the fqdn doesn't change in the environment. If it changes a lot it'd be better to pass similar to ci_hostname
     ci_fqdn: "{{ ci_hostname }}.{{ ci_domain }}"
     # cloud-init.ci_username get from vault
-    ci_ipv4_address: null  # should be provided through cli or runner in cidr format e.g. 192.168.0.1/24
-    ci_ipv4_gateway: null  # should be provided through cli or runner
+    # ci_ipv4_address: null  # should be provided through cli or runner in cidr format e.g. 192.168.0.1/24
+    # ci_ipv4_gateway: null  # should be provided through cli or runner
     ci_template_id: 9000
     ci_nameserver: 192.168.0.1
   roles:
@@ -23,7 +23,7 @@
     - name: End playbook if ci_hostname is null
       ansible.builtin.fail:
         msg: "Terminating playbook execution due to ci_hostname not being defined"
-      when: ci_hostname is null or ci_ipv4_address is null or ci_ipv4_gateway is null
+      when: not ci_hostname or not ci_ipv4_address or not ci_ipv4_gateway
   tasks:
     - name: Generate Cloud-Init User Configuration
       ansible.builtin.template:
