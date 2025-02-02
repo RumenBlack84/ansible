@@ -15,6 +15,7 @@
     # cloud-init.ci_username get from vault
     # ci_ipv4_address: null  # should be provided through cli or runner in cidr format e.g. 192.168.0.1/24
     # ci_ipv4_gateway: null  # should be provided through cli or runner
+    ci_target_storage: Truenas
     ci_template_id: 9000
     ci_nameserver: 192.168.0.1
   roles:
@@ -40,7 +41,7 @@
         cmd: qm set "{{ ci_template_id }}" --cicustom "user={{ ci_user_path_datastore }},network={{ ci_network_path_datastore }}"
       changed_when: false
 
-    - name: Debug output of clone command
+    - name: Debug output of qm set command
       ansible.builtin.debug:
         msg: >-
               The QM set command was;
@@ -48,16 +49,24 @@
 
     - name: Clone template to new VM
       ansible.builtin.command:
-        cmd: qm clone "{{ ci_template_id }}" "{{ first_available_id }}" --name "{{ ci_hostname }}" --full --format raw --target "{{ inventory_hostname }}"
+        cmd: >-
+              qm clone "{{ ci_template_id }}" "{{ first_available_id }}"
+              --name "{{ ci_hostname }}" --full --format raw
+              --storage "{{ target_storage }}" --target "{{ inventory_hostname }}"
       register: clone_result
       changed_when: clone_result.rc == 0
 
-    - name: Debug output of clone command
+    - name: Show the clone command used
       ansible.builtin.debug:
         msg: >-
               The Clone command was;
-              qm clone "{{ ci_template_id }}" "{{ first_available_id }}" --name "{{ ci_hostname }}" --full --format raw --target "{{ inventory_hostname }}"
-              The output was "{{ clone_result }}"
+              qm clone "{{ ci_template_id }}" "{{ first_available_id }}"
+              --name "{{ ci_hostname }}" --full --format raw
+              --storage "{{ target_storage }}" --target "{{ inventory_hostname }}"
+
+    - name: Debug output of clone command
+      ansible.builtin.debug:
+        msg: The output was "{{ clone_result }}"
     - name: Resize disk on new VM # change to desired disk and size
       ansible.builtin.command:
         cmd: qm resize "{{ first_available_id }}" scsi0 50G
