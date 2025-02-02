@@ -1,0 +1,9 @@
+---
+- name: Run commands on the new VM
+  hosts: ubuntu_vms
+  pre_tasks:
+    - name: Skip Play if Docker_host is not true
+      ansible.builtin.meta: end_play
+      when: not docker_enabled
+  roles:
+    - docker

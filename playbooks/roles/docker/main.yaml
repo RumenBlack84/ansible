@@ -1,0 +1,139 @@
+---
+- name: Ensure directory for keyrings exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.gpg.raw
+    mode: '0644'
+
+- name: Convert GPG key to dearmored format
+  ansible.builtin.command:
+    cmd: gpg --dearmor -o /etc/apt/keyrings/docker.gpg /etc/apt/keyrings/docker.gpg.raw
+  args:
+    creates: /etc/apt/keyrings/docker.gpg
+
+- name: Remove raw GPG key
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/docker.gpg.raw
+    state: absent
+
+- name: Add Docker repository to sources list
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/docker.list
+    line: >
+      deb [arch={{ ansible_architecture }}
+      signed-by=/etc/apt/keyrings/docker.gpg]
+      https://download.docker.com/linux/ubuntu
+      {{ ansible_lsb.codename }} stable
+      create: true
+      mode: '0644'
+- name: Install Docker packages
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      - apt-transport-https
+      - curl
+    state: present
+    update_cache: true
+
+- name: Ensure the docker compose directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose"
+    state: directory
+    mode: '0600'
+- name: Ensure the media directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose/media"
+    state: directory
+    mode: '0600'
+  when: Beluga = true
+- name: Generate media docker compose file
+  ansible.builtin.template:
+    src: docker-compose/media/docker-compose.yaml
+    dest: "/home/{{ cloud-init.ci_username }}/docker-compose/media/docker-compose.yaml"
+    owner: "{{ cloud-init.ci_username }}"
+    group: "{{ cloud-init.ci_username }}"
+    mode: "0600"
+  when: Beluga = true
+- name: Ensure the actual-budget directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose/actual-budget"
+    state: directory
+    mode: '0600'
+  when: Beluga = true
+- name: Generate actual-budget docker compose file
+  ansible.builtin.template:
+    src: docker-compose/actual-budget/docker-compose.yaml
+    dest: "/home/{{ cloud-init.ci_username }}/docker-compose/actual-budget/docker-compose.yaml"
+    owner: "{{ cloud-init.ci_username }}"
+    group: "{{ cloud-init.ci_username }}"
+    mode: "0600"
+  when: Beluga = true
+# add in AI when it's completed
+
+- name: Ensure the kavita directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose/kavita"
+    state: directory
+    mode: '0600'
+  when: Beluga = true
+- name: Generate kavita docker compose file
+  ansible.builtin.template:
+    src: docker-compose/kavita/docker-compose.yaml
+    dest: "/home/{{ cloud-init.ci_username }}/docker-compose/kavita/docker-compose.yaml"
+    owner: "{{ cloud-init.ci_username }}"
+    group: "{{ cloud-init.ci_username }}"
+    mode: "0600"
+  when: Beluga = true
+
+- name: Ensure the lutris-hosting directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose/lutris-hosting"
+    state: directory
+    mode: '0600'
+  when: Beluga = true
+- name: Generate lutris-hosting docker compose file
+  ansible.builtin.template:
+    src: docker-compose/lutris-hosting/docker-compose.yaml
+    dest: "/home/{{ cloud-init.ci_username }}/docker-compose/lutris-hosting/docker-compose.yaml"
+    owner: "{{ cloud-init.ci_username }}"
+    group: "{{ cloud-init.ci_username }}"
+    mode: "0600"
+  when: Beluga = true
+- name: Ensure the proton-mail-bridge directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose/proton-mail-bridge"
+    state: directory
+    mode: '0600'
+  when: Beluga = true
+- name: Generate proton-mail-bridge docker compose file
+  ansible.builtin.template:
+    src: docker-compose/proton-mail-bridge/docker-compose.yaml
+    dest: "/home/{{ cloud-init.ci_username }}/docker-compose/proton-mail-bridge/docker-compose.yaml"
+    owner: "{{ cloud-init.ci_username }}"
+    group: "{{ cloud-init.ci_username }}"
+    mode: "0600"
+  when: Beluga = true
+- name: Ensure the uptime-kuma directory exists
+  ansible.builtin.file:
+    path: "/home/{{ cloud-init.ci_username }}/docker-compose/uptime-kuma"
+    state: directory
+    mode: '0600'
+  when: Beluga = true
+- name: Generate uptime-kuma docker compose file
+  ansible.builtin.template:
+    src: docker-compose/uptime-kuma/docker-compose.yaml
+    dest: "/home/{{ cloud-init.ci_username }}/docker-compose/uptime-kuma/docker-compose.yaml"
+    owner: "{{ cloud-init.ci_username }}"
+    group: "{{ cloud-init.ci_username }}"
+    mode: "0600"
+  when: Beluga = true

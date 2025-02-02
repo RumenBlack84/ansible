@@ -6,6 +6,15 @@ all:
           ansible_host: 192.168.0.5
         Vanir: 
           ansible_host: 192.168.0.6
-    ubuntu:
+    ubuntu_vms:
       hosts:
-        db1.example.com:
+        # AI Docker host
+        Arnold:
+          ansible_host: 192.168.0.71
+          docker_enabled: true
+          Arnold: true
+        # Main Docker host
+        Beluga:
+          ansible_host: 192.168.0.75
+          docker_enabled: true
+          Beluga: true

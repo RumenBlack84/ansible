@@ -22,19 +22,19 @@ packages:
 ssh_pwauth: false
 users:
   - default
-  - name: {{ ci_username }}
+  - name: {{ cloud-init.ci_username }}
     sudo: ALL=(ALL) NOPASSWD:ALL # Remove if passwordless sudo is not desired
     groups: sudo # Fallback for password sudo
     ssh_authorized_keys:
-      - {{ ci_ssh_key }}
-    password: {{ ci_password }}
+      - {{ cloud-init.ci_ssh_key }}
+    password: {{ cloud-init.ci_password }}
     shell: /bin/zsh
   
 package_upgrade: true
 runcmd:
   - nala fetch --auto
   - |
-    cat << 'EOF' > /home/{{ ci_username }}/.zshrc
+    cat << 'EOF' > /home/{{ cloud-init.ci_username }}/.zshrc
     apt() {
       command nala "$@"
     }
@@ -51,13 +51,13 @@ runcmd:
     alias neofetch=fastfetch
     neofetch
     EOF
-  - chmod 0644 /home/{{ ci_username }}/.zshrc
-  - chown {{ ci_username }} /home/{{ ci_username }}/.zshrc
-  - chgrp {{ ci_username }} /home/{{ ci_username }}/.zshrc
+  - chmod 0644 /home/{{ cloud-init.ci_username }}/.zshrc
+  - chown {{ cloud-init.ci_username }} /home/{{ cloud-init.ci_username }}/.zshrc
+  - chgrp {{ cloud-init.ci_username }} /home/{{ cloud-init.ci_username }}/.zshrc
   - add-apt-repository ppa:zhangsongcui3371/fastfetch -y
   - apt update
   - apt install fastfetch -y
-  - runuser -l {{ ci_username }} -c "curl -s https://ohmyposh.dev/install.sh | bash -s"
+  - runuser -l {{ cloud-init.ci_username }} -c "curl -s https://ohmyposh.dev/install.sh | bash -s"
   - |
     bash -c '
     latest=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/tags" | jq -r '.[0].name')

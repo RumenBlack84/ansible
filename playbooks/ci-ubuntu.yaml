@@ -2,23 +2,28 @@
 - name: Prepare Cloud-Init Configuration #
   hosts: "{{ target_host }}"
   vars_files: # We are getting the ssh pubkey and ci_password from the vault
-    - vault/ci-vault.yaml
+    - vault/vault.yaml
   vars:
     target_host: Aesir # Default value can be overwritten by passing it in cli or runner
     ci_user_path: /mnt/pve/ZoomNFS/snippets/user-noble-ubuntu-baseline.yaml
     ci_network_path: /mnt/pve/ZoomNFS/snippets/network-noble-ubuntu-baseline.yaml
     ci_user_path_datastore: ZoomNFS:snippets/user-noble-ubuntu-baseline.yaml
     ci_network_path_datastore: ZoomNFS:snippets/network-noble-ubuntu-baseline.yaml
-    # ci_hostname should be provided via cli or runner like semaphore
+    ci_hostname: null  # should be provided via cli or runner like semaphore
     ci_domain: grant.onl # This is assuming the fqdn doesn't change in the environment. If it changes a lot it'd be better to pass similar to ci_hostname
     ci_fqdn: "{{ ci_hostname }}.{{ ci_domain }}"
-    ci_username: bgrant # Assuming a same user per system
-    # ci_ipv4_address should be provided through cli or runner in cidr format e.g. 192.168.0.1/24
-    # ci_ipv4_gateway should be provided through cli or runner
+    # cloud-init.ci_username get from vault
+    ci_ipv4_address: null  # should be provided through cli or runner in cidr format e.g. 192.168.0.1/24
+    ci_ipv4_gateway: null  # should be provided through cli or runner
     ci_template_id: 9000
     ci_nameserver: 192.168.0.1
   roles:
     - first-available-vm-id # get the first free vm/ct id in a range from 100-9000 and loads it as {{ first_available_id }}
+  pre_tasks:
+    - name: End playbook if ci_hostname is null
+      ansible.builtin.fail:
+        msg: "Terminating playbook execution due to ci_hostname not being defined"
+      when: ci_hostname is null or ci_ipv4_address is null or ci_ipv4_gateway is null
   tasks:
     - name: Generate Cloud-Init User Configuration
       ansible.builtin.template:
