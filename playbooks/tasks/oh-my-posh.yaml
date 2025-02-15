@@ -1,0 +1,124 @@
+- name: Ensure fontconfig dependancy is installed
+  ansible.builtin.apt:
+    name: fontconfig
+    state: present
+    update_cache: true
+
+- name: Ensure unzip dependancy is installed
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+
+- name: Ensure zsh dependancy is installed
+  ansible.builtin.apt:
+    name: zsh
+    state: present
+
+- name: Set zshrc file for root
+  ansible.builtin.blockinfile:
+    path: /root/.zshrc
+    marker: "# {mark} Ansible managed block for custom functions"
+    block: |
+      apt() {
+        command nala "$@"
+      }
+      sudo() {
+        if [ "$1" = "apt" ]; then
+          shift
+          command sudo nala "$@"
+        else
+          command sudo "$@"
+        fi
+      }
+      eval "$(oh-my-posh init zsh)"
+      alias neofetch=fastfetch
+      neofetch
+    owner: root
+    group: root
+    mode: '0644'
+
+# Fast fetch installation and update
+
+- name: Get latest tag from GitHub API
+  ansible.builtin.shell: >
+    set -o pipefail && curl -s "https://api.github.com/repos/fastfetch-cli/fastfetch/tags" | jq -r '.[0].name'
+  register: latest_tag
+  changed_when: false
+
+- name: Debug the latest tag
+  ansible.builtin.debug:
+    msg: "Latest tag is {{ latest_tag.stdout }}"
+
+- name: Get installed fastfetch version
+  ansible.builtin.set_fact:
+    fastfetch_installed_version: "{{ ansible_facts.packages['fastfetch'][0].version if 'fastfetch' in ansible_facts.packages else 'not_installed' }}"
+
+- name: Debug installed version
+  ansible.builtin.debug:
+    msg: "Fastfetch installed version: {{ fastfetch_installed_version }}"
+
+- name: Check if Checkmk agent needs updating
+  ansible.builtin.set_fact:
+    fastfetch_update_required: "{{ fastfetch_installed_version != latest_tag }}"
+  when: fastfetch_installed_version != 'not_installed'
+
+- name: Download the latest release
+  ansible.builtin.get_url:
+    url: https://github.com/fastfetch-cli/fastfetch/releases/download/{{ latest_tag }}/fastfetch-linux-amd64.deb
+    dest: /tmp/fastfetch-linux-amd64.deb
+    owner: root
+    group: root
+    mode: '0644'
+  when: "latest_tag not in fastfetch_installed_version"
+
+- name: Install the .deb package
+  ansible.builtin.apt:
+    deb: /tmp/fastfetch-linux-amd64.deb
+  when: "latest_tag not in fastfetch_installed_version"
+
+# meslo nerd font installation and update
+
+- name: Get latest tag from GitHub API
+  ansible.builtin.shell: >
+    set -o pipefail && curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/tags" | jq -r '.[0].name'
+  register: latest_tag
+  changed_when: false
+
+- name: Get Current Version if any
+  ansible.builtin.slurp:
+    src: /usr/share/fonts/meslo.ver
+  register: file_content
+
+
+- name: Get Current Version if any
+  ansible.builtin.set_fact:
+    meslo_ver: "{{ file_content.content | b64decode | trim }}"
+
+- name: Debug the latest tag
+  ansible.builtin.debug:
+    msg: "Latest tag is {{ latest_tag.stdout }}"
+
+- name: Debug the meslo_ver
+  ansible.builtin.debug:
+    msg: "Current Version is {{ meslo_ver }}"
+
+- name: Check if Checkmk agent needs updating
+  ansible.builtin.set_fact:
+    meslo_update_required: "{{ meslo_ver != latest_tag }}"
+
+- name: Download the latest release
+  ansible.builtin.get_url:
+    url: "https://github.com/ryanoasis/nerd-fonts/releases/download/${{ latest_tag }}/Meslo.tar.xz"
+    dest: /tmp/Meslo.tar.xz"
+    owner: root
+    group: root
+    mode: '0644'
+  when: meslo_update_required | default(true) | bool
+
+- name: Extract Meslo fonts archive
+  ansible.builtin.unarchive:
+    src: /tmp/Meslo.tar.xz
+    dest: /usr/share/fonts
+    remote_src: true
+    extra_opts: [--xz]
+  when: meslo_update_required | default(true) | bool

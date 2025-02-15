@@ -46,9 +46,10 @@
     state: present
 
 - name: Check TrueNAS host key and add to variable
-  ansible.builtin.shell:
+  ansible.builtin.command:
     cmd: ssh-keyscan -H "{{ truenas_ip }}"
   register: ssh_keyscan_output
+  changed_when: false
 
 - name: Ensure TrueNAS host key is in known_hosts
   ansible.builtin.lineinfile:
@@ -56,3 +57,6 @@
     line: "{{ ssh_keyscan_output.stdout }}"
     state: present
     create: true
+    owner: root
+    group: root
+    mode: '0644'

@@ -1,0 +1,20 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    environment:
+      - UMASK=000
+      - TZ=America/Toronto
+      - DOMAIN=https://bitwarden.grant.onl
+    volumes:
+      - vault-warden_data:/data
+    ports:
+      - 4743:80
+    restart: unless-stopped
+volumes:
+  uptime_data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr={{ NAS_IP }},rw,nfsvers=4.2,nconnect=8"
+      device: ":/mnt/Zoom/docker/vault-warden_data"

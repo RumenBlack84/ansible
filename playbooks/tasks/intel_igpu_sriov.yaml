@@ -27,26 +27,41 @@
     state: present
     update_cache: true
 
+- name: Ensure jq is installed
+  ansible.builtin.apt:
+    name: jq
+    state: present
+    update_cache: true
+
 - name: Check if the package is already installed
-  ansible.builtin.shell: "dpkg-query -W -f='${Version}' i915-sriov-dkms"
+  ansible.builtin.shell: dpkg-query -W -f='${Version}' i915-sriov-dkms
   register: installed_version
   failed_when: false
   changed_when: false
 
-# this is a static hack for now, I either need to make my own ppa or figure out the github code for this so it pulls the latest release
-- name: Download a file from a URL
+- name: Get latest tag from GitHub API
+  ansible.builtin.shell: >
+    set -o pipefail && curl -s "https://api.github.com/repos/strongtz/i915-sriov-dkms/tags" | jq -r '.[0].name'
+  register: latest_tag
+  changed_when: false
+
+- name: Debug the latest tag
+  ansible.builtin.debug:
+    msg: "Latest tag is {{ latest_tag.stdout }}"
+
+- name: Download the latest release
   ansible.builtin.get_url:
-    url: https://github.com/strongtz/i915-sriov-dkms/releases/download/2024.12.30/i915-sriov-dkms_2024.12.30_amd64.deb
-    dest: /tmp/i915-sriov-dkms_2024.12.30_amd64.deb
+    url: https://github.com/strongtz/i915-sriov-dkms/releases/download/{{ latest_tag }}/i915-sriov-dkms_{{ latest_tag }}_amd64.deb
+    dest: /tmp/i915-sriov-dkms_{{ latest_tag }}_amd64.deb
     owner: root
     group: root
     mode: '0644'
-  when: "'2024.12.30' not in installed_version"
+  when: "latest_tag not in installed_version"
 
 - name: Install the .deb package
   ansible.builtin.apt:
-    deb: /tmp/i915-sriov-dkms_2024.12.30_amd64.deb
-  when: "'2024.12.30' not in installed_version"
+    deb: /tmp/i915-sriov-dkms_{{ latest_tag }}_amd64.deb
+  when: "latest_tag not in installed_version"
 
 - name: Set Grub kernel parameters
   ansible.builtin.lineinfile:
@@ -54,7 +69,7 @@
     regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
     line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt i915.enable_guc=3 i915.max_vfs=7 module_blacklist=xe"'
     backup: true
-  register: grub-result
+  register: grub_result
 
 # In every system I've seen this has been 00:02.0 however if issues are encountered verify with lspci | grep VGA
 - name: Overwrite /etc/sysfs.conf with SR-IOV configuration and record in sysfs-result
@@ -65,18 +80,19 @@
     owner: root
     group: root
     mode: '0644'
-  register: sysfs-result
+  register: sysfs_result
 
 - name: Update initramfs for all kernels
-  ansible.builtin.shell: update-initramfs -u -k all
-  when: grub-result.changed or sysfs-result.changed
-  register: initramfs-result
+  ansible.builtin.command: update-initramfs -u -k all
+  when: grub_result.changed or sysfs_result.changed
+  register: initramfs_result
+  changed_when: true
 
-- name: Refresh Boot
+- name: Refresh Boot # noqa: no-handler
   ansible.builtin.command: "proxmox-boot-tool refresh"
   register: proxmox_boot_refresh
   changed_when: proxmox_boot_refresh.rc == 0 and "no changes" not in proxmox_boot_refresh.stdout
-  when: initramfs-result.changed
+  when: initramfs_result.changed
 
 - name: Reboot the system
   ansible.builtin.reboot:

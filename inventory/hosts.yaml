@@ -4,17 +4,29 @@ all:
       hosts:
         Aesir:
           ansible_host: 192.168.0.5
-        Vanir: 
+          cmk_folder: '/LAN'
+          connectx: true
+          intel_sriov: true
+          ceph_install: false
+          zfsiscsi: true
+        Vanir:
           ansible_host: 192.168.0.6
+          cmk_folder: '/LAN'
+          connectx: true
+          intel_sriov: false
+          ceph_install: false
+          zfsiscsi: true
     ubuntu_vms:
       hosts:
         # AI Docker host
         Arnold:
           ansible_host: 192.168.0.71
+          cmk_folder: '/LAN'
           docker_enabled: true
           Arnold: true
         # Main Docker host
         Beluga:
           ansible_host: 192.168.0.75
+          cmk_folder: '/LAN'
           docker_enabled: true
           Beluga: true
