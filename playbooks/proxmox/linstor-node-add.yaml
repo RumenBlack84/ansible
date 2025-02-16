@@ -130,6 +130,8 @@
           - resource-agents
           - git
           - golang
+          - linstor-gui
+          - jq
         state: present
         update_cache: true
 
