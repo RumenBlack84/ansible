@@ -29,10 +29,7 @@
         owner: root
         group: root
         mode: '0644'
-# Update apt cache with our nice new repo
-    - name: Update apt cache
-      ansible.builtin.apt:
-        update_cache: true
+
 # Create mount service for linstor database in case this node ever become active
 # As per https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
     - name: Create var-lib-linstor.mount file
@@ -117,61 +114,30 @@
         url: "https://raw.githubusercontent.com/RumenBlack84/ansible/main/linstor-configs/linstor-gateway.service"
         dest: /etc/systemd/system/linstor-gateway.service
         mode: '0755'
-# Install required linstor Packages
-    - name: Install drbd-dkms
+    - name: Install required LINSTOR and related packages
       ansible.builtin.apt:
-        name: drbd-dkms
+        name:
+          - drbd-dkms
+          - drbd-utils
+          - linstor-controller
+          - linstor-satellite
+          - linstor-client
+          - linstor-proxmox
+          - drbd-reactor
+          - targetcli-fb
+          - nfs-common
+          - nfs-kernel-server
+          - resource-agents
+          - git
+          - golang
         state: present
-    - name: Install drbd-utils
-      ansible.builtin.apt:
-        name: drbd-utils
-        state: present
-    - name: Install linstor-controller
-      ansible.builtin.apt:
-        name: linstor-controller
-        state: present
-    - name: Install linstor-satellite
-      ansible.builtin.apt:
-        name: linstor-satellite
-        state: present
-    - name: Install linstor-client
-      ansible.builtin.apt:
-        name: linstor-client
-        state: present
-    - name: Install linstor-proxmox
-      ansible.builtin.apt:
-        name: linstor-proxmox
-        state: present
-    - name: Install drbd-reactor
-      ansible.builtin.apt:
-        name: drbd-reactor
-        state: present
-    - name: Install LIO iSCSI
-      ansible.builtin.apt:
-        name: targetcli-fb
-        state: present
-    - name: Install nfs clients
-      ansible.builtin.apt:
-        name: nfs-common
-        state: present
-    - name: Install
-      ansible.builtin.apt:
-        name: nfs-kernel-server
-        state: present
-    - name: Install resource agents
-      ansible.builtin.apt:
-        name: resource-agents
-        state: present
+        update_cache: true
+
 # Work around for current debian issue with resource agents
 # This is currently causing an issue with iptables rules not being removed when drbd-reactors are changing hosts:
 # This was causing the VIP to fail for the DB config (192.168.0.9) in my case as the rules got left in place
 # Relevant issue https://github.com/LINBIT/linstor-gateway/issues/28
 # This section can be removed when this issue is resolved
-    - name: Ensure git is installed
-      ansible.builtin.apt:
-        name: git
-        state: present
-        update_cache: true
     - name: Clone the resource-agents repository
       ansible.builtin.git:
         repo: 'https://github.com/ClusterLabs/resource-agents.git'
@@ -189,17 +155,7 @@
         mode: '0755'
         state: file
 # End of workaround section
-# Install Dependancies for building linstor-gateway
-    - name: Ensure Go is installed
-      ansible.builtin.apt:
-        name: golang
-        state: present
-        update_cache: true
-    - name: Ensure git is installed
-      ansible.builtin.apt:
-        name: git
-        state: present
-        update_cache: true
+
 # install linstor gateway
     - name: Clone the repository
       ansible.builtin.git:
@@ -300,40 +256,35 @@
         enabled: true
         state: started
 # Restart proxmox services in order to have our drbd storages appear
-    - name: Restart pve-cluster service
+    - name: Restart Proxmox services
       ansible.builtin.systemd:
-        name: pve-cluster
+        name: "{{ item }}"
         state: restarted
-    - name: Restart pvedaemon service
-      ansible.builtin.systemd:
-        name: pvedaemon
-        state: restarted
-    - name: Restart pvestatd service
-      ansible.builtin.systemd:
-        name: pvestatd
-        state: restarted
-    - name: Restart pveproxy service
-      ansible.builtin.systemd:
-        name: pveproxy
-        state: restarted
-    - name: Restart pve-ha-lrm service
-      ansible.builtin.systemd:
-        name: pve-ha-lrm
-        state: restarted
+      loop:
+        - pve-cluster
+        - pvedaemon
+        - pvestatd
+        - pveproxy
+        - pve-ha-lrm
+
     - name: Get the hostname
       ansible.builtin.command: hostname
       register: hostname_output
       changed_when: hostname_output.rc != 0
+
     - name: Debug the hostname
       ansible.builtin.debug:
         msg: "The hostname of the remote host is: {{ hostname_output.stdout }}"
+
     - name: Get the IP address of vmbr0
       ansible.builtin.shell: set -o pipefail && ip -4 addr show vmbr0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
       register: ip_output
       changed_when: ip_output.rc != 0
+
     - name: Debug the IP address of vmbr0
       ansible.builtin.debug:
         msg: "The IP address of vmbr0 on the remote host is: {{ ip_output.stdout }}"
+
     - name: Further Manual Action required
       ansible.builtin.debug:
         msg: |
@@ -341,7 +292,3 @@
           Log onto the VIP (pve - 192.168.0.9) which will be running the controller.
           From there run the following command:
           linstor node create {{ hostname_output.stdout }} {{ ip_output.stdout }}
-#    - name:
-#      apt:
-#        name:
-#        state: present

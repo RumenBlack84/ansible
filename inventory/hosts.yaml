@@ -7,15 +7,17 @@ all:
           cmk_folder: '/LAN'
           connectx: true
           intel_sriov: true
-          ceph_install: false
           zfsiscsi: true
+          linstor: true
+          linstor_controller: true
+          linstor_controller_priority: 100
         Vanir:
           ansible_host: 192.168.0.6
           cmk_folder: '/LAN'
           connectx: true
-          intel_sriov: false
-          ceph_install: false
           zfsiscsi: true
+          linstor: true
+          linstor_controller: true
     ubuntu_vms:
       hosts:
         # AI Docker host

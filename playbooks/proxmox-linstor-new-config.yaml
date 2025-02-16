@@ -1,0 +1,307 @@
+---
+- name: Run Proxmox VE Post Install Process
+  hosts: proxmox
+  become: true
+  vars_files:
+    - vault/vault.yaml
+  vars:
+    ansible_shell_executable: /bin/bash  # Use bash as the default shell
+    ansible_ssh_pipelining: true
+    default_storage_pool: DfltStorPool
+    default_zfs_pool: essd
+  tasks:
+# This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
+    - name: Download Linstor Public Repo Key
+      ansible.builtin.get_url:
+        url: "https://packages.linbit.com/package-signing-pubkey.asc"
+        dest: /tmp/package-signing-pubkey.asc
+        mode: '0755'
+
+    - name: Import Linstor Repo key
+      environment:
+        TERM: xterm
+      ansible.builtin.command: "gpg --yes -o /etc/apt/trusted.gpg.d/linbit-keyring.gpg --dearmor /tmp/package-signing-pubkey.asc"
+      args:
+        creates: /etc/apt/trusted.gpg.d/linbit-keyring.gpg
+
+    - name: Overwrite linbit.list with LINBIT repository entry
+      ansible.builtin.copy:
+        content: |
+          deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] http://packages.linbit.com/public/ proxmox-8 drbd-9
+        dest: /etc/apt/sources.list.d/linbit.list
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install required LINSTOR and related packages
+      ansible.builtin.apt:
+        name:
+          - pve-headers
+          - drbd-dkms
+          - drbd-utils
+          - linstor-controller
+          - linstor-satellite
+          - linstor-client
+          - linstor-proxmox
+          - drbd-reactor
+          - targetcli-fb
+          - nfs-common
+          - nfs-kernel-server
+          - resource-agents
+          - git
+          - golang
+          - linstor-gui
+        state: present
+        update_cache: true
+
+    - name: Enable and start linstor-satellite service on all nodes
+      ansible.builtin.systemd:
+        name: linstor-satellite
+        enabled: true
+        state: started
+
+    - name: Enable and start linstor-controller service on the initial controller node
+      ansible.builtin.systemd:
+        name: linstor-controller
+        enabled: true
+        state: started
+      when: linstor_initial_controller | default(false) | bool
+
+# I should probally add a section here to check first if the node is already a part of the linstor cluster with the linstor node list command:
+# However I'm doing this before having the software installed so it'll have to be added later.
+
+    - name: Register Proxmox hosts with LINSTOR, run the commands only on controller node
+      ansible.builtin.command:
+        cmd: "linstor node create {{ item }} {{ hostvars[item].ansible_host }}"
+      loop: "{{ groups['proxmox'] | select('extract', hostvars, 'linstor') | select('equalto', true) | list }}"
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create storage pool on top on ZFS on the disk'd nodes only
+      ansible.builtin.command:
+        cmd: "linstor storage-pool create zfs-thin {{ inventory_hostname }} {{ default_storage_pool }} {{ default_zfs_pool }}"
+      when: linstor_disks | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create a resource group, run command only on controller node
+      ansible.builtin.command:
+        cmd: "linstor resource-group create RG-{{ default_storage_pool }} --place-count 2 --storage-pool {{ default_storage_pool }}"
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create a resource group, run command only on controller node
+      ansible.builtin.command:
+        cmd: "linstor volume-group create VG-{{ default_storage_pool }}"
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+# Time to make the controller DB HA following this documentation
+# https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
+    - name: Let's make the controller HA now, starting with a place to put the DB
+      ansible.builtin.command: >
+        linstor resource-group create
+        --storage-pool {{ default_storage_pool }}
+        --place-count 2
+        --diskless-on-remaining true
+        linstor-db-grp
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Set resource group options so it will function properly with drbd reactor
+      ansible.builtin.command: >
+        linstor resource-group drbd-options
+        --auto-promote=no
+        --quorum=majority
+        --on-suspended-primary-outdated=force-secondary
+        --on-no-quorum=io-error
+        --on-no-data-accessible=io-error
+        linstor-db-grp
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create volume group we can use on our new resource
+      ansible.builtin.command: >
+        linstor volume-group create linstor-db-grp
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create a volume for our DB
+      ansible.builtin.command: >
+        linstor resource-group spawn-resources linstor-db-grp linstor_db 500M
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+    - name: Disable and stop linstor-controller service on all nodes, we will be controlling it with drbd reactor later
+      ansible.builtin.systemd:
+        name: linstor-controller
+        enabled: false
+        state: stopped
+
+    - name: Create var-lib-linstor.mount file
+      ansible.builtin.copy:
+        content: |
+          [Unit]
+          Description=Filesystem for the LINSTOR controller
+
+          [Mount]
+          # you can use the minor like /dev/drbdX or the udev symlink
+          What=/dev/drbd/by-res/linstor_db/0
+          Where=/var/lib/linstor
+        dest: /etc/systemd/system/var-lib-linstor.mount
+        owner: root
+        group: root
+        mode: '0644'
+      when: linstor_controller | default(false) | bool
+
+    - name: Move existing LINSTOR database directory on current controller node
+      ansible.builtin.command:
+        cmd: "mv /var/lib/linstor /var/lib/linstor.orig"
+        removes: /var/lib/linstor
+      when: linstor_initial_controller | default(false) | bool
+
+    - name: Create new LINSTOR database directory on all to be controllers
+      ansible.builtin.file:
+        path: /var/lib/linstor
+        state: directory
+        mode: '0755'
+      when: linstor_controller | default(false) | bool
+
+    - name: Check if /var/lib/linstor is immutable
+      ansible.builtin.command:
+        cmd: "lsattr /var/lib/linstor"
+      register: linstor_lsattr
+      changed_when: false
+      when: linstor_controller | default(false) | bool
+
+    - name: Ensure /var/lib/linstor is immutable (chattr +i)
+      ansible.builtin.command:
+        cmd: "chattr +i /var/lib/linstor"
+      when: ("'-------------e-- /var/lib/linstor' not in linstor_lsattr.stdout")
+            and (linstor_controller | default(false) | bool)
+      changed_when: false
+
+    - name: Promote LINSTOR database DRBD resource to primary
+      ansible.builtin.command:
+        cmd: "drbdadm primary linstor_db"
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: false
+
+    - name: Format DRBD volume with ext4
+      ansible.builtin.command:
+        cmd: "mkfs.ext4 /dev/drbd/by-res/linstor_db/0"
+      args:
+        creates: "/dev/drbd/by-res/linstor_db/0"
+      when: linstor_initial_controller | default(false) | bool
+
+    - name: Start the var-lib-linstor.mount service
+      ansible.builtin.systemd:
+        name: var-lib-linstor.mount
+        state: started
+        enabled: true
+      when: linstor_initial_controller | default(false) | bool
+
+    - name: Restore LINSTOR data
+      ansible.builtin.command:
+        cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor"
+      when: (ansible.builtin.stat.path == "/var/lib/linstor.orig")
+            and (linstor_initial_controller | default(false) | bool)
+      changed_when: false # only changes if the directory exists
+
+    - name: Start LINSTOR controller service
+      ansible.builtin.systemd:
+        name: linstor-controller
+        state: started
+      when: linstor_initial_controller | default(false) | bool
+
+    - name: Collect LINSTOR controller nodes
+      ansible.builtin.set_fact:
+        linstor_controllers: "{{ groups['proxmox'] | select('extract', hostvars, 'linstor_controller') | select('equalto', true) | list }}"
+
+    - name: Create LINSTOR client configuration file
+      ansible.builtin.template:
+        src: linstor-configs/linstor-client.conf.j2
+        dest: /etc/linstor/linstor-client.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create /etc/drbd-reactor.d directory
+      ansible.builtin.file:
+        path: /etc/drbd-reactor.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create DRBD Reactor configuration file
+      ansible.builtin.template:
+        src: linstor-configs/linstor_db.toml.j2
+        dest: /etc/drbd-reactor.d/linstor_db.toml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create /etc/systemd/system/linstor-satellite.service.d/ directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/linstor-satellite.service.d/
+        state: directory
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create override configuration file
+      ansible.builtin.template:
+        src: linstor-configs/override.conf.j2
+        dest: /etc/systemd/system/linstor-satellite.service.d/override.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create linstor_satellite.toml file
+      ansible.builtin.template:
+        src: linstor-configs/linstor_satellite.toml.j2
+        dest: /etc/linstor/linstor_satellite.toml
+        owner: root
+        group: root
+        mode: '0644'
+
+# Maybe add linstor gateway stuff in here? Will have to check.
+
+# Work around for current debian issue with resource agents
+# This is currently causing an issue with iptables rules not being removed when drbd-reactors are changing hosts:
+# This was causing the VIP to fail for the DB config (192.168.0.9) in my case as the rules got left in place
+# Relevant issue https://github.com/LINBIT/linstor-gateway/issues/28
+# This section can be removed when this issue is resolved
+    - name: Clone the resource-agents repository
+      ansible.builtin.git:
+        repo: 'https://github.com/ClusterLabs/resource-agents.git'
+        version: main
+        dest: /tmp/resource-agents
+    - name: Copy portblock script to /usr/lib/ocf/resource.d/heartbeat
+      ansible.builtin.copy:
+        src: /tmp/resource-agents/heartbeat/portblock
+        dest: /usr/lib/ocf/resource.d/heartbeat/portblock
+        remote_src: true
+        mode: '0755'
+    - name: Ensure the portblock script is executable
+      ansible.builtin.file:
+        path: /usr/lib/ocf/resource.d/heartbeat/portblock
+        mode: '0755'
+        state: file
+# End of workaround section
+
+# still to do, install and configure linstor-gateway

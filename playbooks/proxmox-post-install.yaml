@@ -110,7 +110,7 @@
 
     - name: Install zfs over iscsi for Truenas/Proxmox integration
       ansible.builtin.include_tasks: tasks/zfs-over-iscsi.yaml
-      when: zfsiscsi is true
+      when: zfsiscsi | default(false) | bool
 
     - name: Install corosync-qdevice
       ansible.builtin.apt:
@@ -126,7 +126,7 @@
         name: mstflint
         state: present
         update_cache: true
-      when: connectx is true
+      when: connectx | default(false) | bool
 
     - name: Overwrite /etc/modprobe.d/mlx4_core.conf with SR-IOV configuration
       ansible.builtin.copy:
@@ -139,7 +139,7 @@
         owner: root
         group: root
         mode: '0644'
-      when: connectx is true
+      when: connectx | default(false) | bool
 
     - name: Run bootctl status to check for systemd-boot
       ansible.builtin.command: bootctl status
@@ -244,7 +244,7 @@
       when: (kernel_reboot_required | bool)
               or (systemd_boot_enabled | bool)
               or (grub_config is defined and grub_config.changed)
-              or (connectx is true)
+              or (connectx | default(false) | bool)
       register: reboot_result
 
     - name: Notify user of reboot completion
@@ -265,7 +265,7 @@
     - name: If an intel igpu is found run and the intel_sriov flag is set for host install latest sr-iov drivers
       ansible.builtin.include_tasks: tasks/intel_igpu_sriov.yaml
       when: (igpu_check.rc == 0)
-            and (intel_sriov is true)
+            and (intel_sriov | default(false) | bool)
 
     - name: Run checkmk install
       ansible.builtin.include_tasks: tasks/cmkagent_install.yaml
@@ -273,11 +273,12 @@
     - name: Gather package facts
       ansible.builtin.package_facts:
         manager: apt
-      when: ceph_install
+      when: ceph_install | default(false) | bool
 
     - name: If ceph variable is set to true in playbook we will install ceph now
       ansible.builtin.shell: set -o pipefail && yes | pveceph install --version reef --repository no-subscription
-      when: ceph_install and 'ceph' not in ansible_facts.packages
+      when: (ceph_install | default(false) | bool)
+            and 'ceph' not in ansible_facts.packages
       changed_when: false
       ignore_errors: true # set because using a no-subscription repo triggers an error code but still installs
       register: ignore_errors_register
@@ -285,4 +286,5 @@
     - name: Show any errors from ceph above just in case
       ansible.builtin.debug:
         msg: "Errors repored from ceph install {{ ignore_errors_register }}"
-      when: ceph_install and 'ceph' not in ansible_facts.packages
+      when: (ceph_install | default(false) | bool)
+            and 'ceph' not in ansible_facts.packages
