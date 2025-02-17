@@ -9,6 +9,8 @@
     ansible_ssh_pipelining: true
     default_storage_pool: DfltStorPool
     default_zfs_pool: essd
+    secondary_storage_pool: BulkPool
+    secondary_zfs_pool: hdd
   tasks:
 # This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
     - name: Download Linstor Public Repo Key
@@ -96,9 +98,33 @@
 
 # Same thing here add logic to check if it exsits first before running later on
 
-    - name: Create a resource group, run command only on controller node
+    - name: Create a volume-group, run command only on controller node
       ansible.builtin.command:
         cmd: "linstor volume-group create VG-{{ default_storage_pool }}"
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create Secondary storage pool for nfs share on hdd pool on top on ZFS on the disk'd nodes only
+      ansible.builtin.command:
+        cmd: "linstor storage-pool create zfs-thin {{ inventory_hostname }} {{ secondary_storage_pool }} {{ secondary_zfs_pool }}"
+      when: linstor_disks | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create a resource group, run command only on controller node
+      ansible.builtin.command:
+        cmd: "linstor resource-group create RG-{{ secondary_storage_pool }} --place-count 2 --storage-pool {{ secondary_storage_pool }}"
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Create a volume-group, run command only on controller node
+      ansible.builtin.command:
+        cmd: "linstor volume-group create VG-{{ secondary_storage_pool }}"
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
@@ -306,3 +332,99 @@
 # End of workaround section
 
 # still to do, install and configure linstor-gateway
+
+# install linstor gateway
+    - name: Install or Update linstor gateway
+      ansible.builtin.include_tasks: tasks/install-update-linstor-gateway.yaml
+
+    - name: Create gateway service file
+      ansible.builtin.template:
+        src: linstor-configs/linstor-gateway.service.j2
+        dest: /etc/systemd/system/linstor-gateway.service
+        owner: root
+        group: root
+        mode: '0644'
+
+# Same thing here add logic to check if it exsits first before running later on
+
+    - name: Use linstor gateway to create HA nfs export on hdd storage pool
+      ansible.builtin.command: >
+        linstor-gateway nfs create nfs 192.168.0.9/32 20T
+        --allowed-ips=192.168.0.0/24
+        --filesystem ext4
+        --resource-group=RG-{{ secondary_storage_pool }}
+      when: linstor_initial_controller | default(false) | bool
+      changed_when: true # remove once additional logic has been added
+
+    - name: Add LINSTOR storage configurations to storage.cfg
+      ansible.builtin.blockinfile:
+        path: /etc/pve/storage.cfg
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - LINSTOR STORAGE"
+        block: |
+          drbd: linstor_{{ default_storage_pool }}
+          content images,vztmpl,snippets,rootdir
+          controller 192.168.0.9
+          resourcegroup RG-{{ default_storage_pool }}
+
+          drbd: linstor_{{ secondary_storage_pool }}
+          content images,vztmpl,snippets,rootdir
+          controller 192.168.0.9
+          resourcegroup RG-{{ secondary_storage_pool }}
+        state: present
+
+# Enable and start required systemd services
+
+    - name: Enable and start linstor-satellite service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: linstor-satellite
+        enabled: true
+        state: started
+    - name: Restart linstor-satellite service just in case it was already started
+      ansible.builtin.systemd:
+        name: linstor-satellite
+        state: restarted
+    - name: Ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
+      ansible.builtin.systemd:
+        name: nfs-server
+        enabled: false
+        state: stopped
+    - name: Enable and start drbd-reactor service
+      ansible.builtin.systemd:
+        name: drbd-reactor
+        enabled: true
+        state: started
+    - name: Disable and stop linstor-gateway service it will be managed by drbd-reactor
+      ansible.builtin.systemd:
+        name: linstor-gateway
+        enabled: false
+        state: stopped
+# Enable the services that will auto reload drbd-reactor when things get changed
+    - name: Copy drbd-reactor-reload.path to /etc/systemd/system/
+      ansible.builtin.copy:
+        src: /usr/share/doc/drbd-reactor/examples/drbd-reactor-reload.path
+        dest: /etc/systemd/system/drbd-reactor-reload.path
+        remote_src: true
+        mode: '0644'
+    - name: Copy drbd-reactor-reload.service to /etc/systemd/system/
+      ansible.builtin.copy:
+        src: /usr/share/doc/drbd-reactor/examples/drbd-reactor-reload.service
+        dest: /etc/systemd/system/drbd-reactor-reload.service
+        remote_src: true
+        mode: '0644'
+    - name: Enable and start drbd-reactor-reload.path
+      ansible.builtin.systemd:
+        name: drbd-reactor-reload.path
+        enabled: true
+        state: started
+# Restart proxmox services in order to have our drbd storages appear
+    - name: Restart Proxmox services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - pve-cluster
+        - pvedaemon
+        - pvestatd
+        - pveproxy
+        - pve-ha-lrm

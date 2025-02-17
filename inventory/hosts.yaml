@@ -9,6 +9,7 @@ all:
           intel_sriov: true
           zfsiscsi: true
           linstor: true
+          linstor_disks: false
           linstor_controller: true
           linstor_controller_priority: 100
         Vanir:

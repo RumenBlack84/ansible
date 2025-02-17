@@ -213,7 +213,9 @@
     - name: Debug output of binary existence
       ansible.builtin.debug:
         msg: "linstor-gateway binary exists at /usr/sbin/linstor-gateway: {{ linstor_gateway_stat.stat.exists }}"
+
 # Enable and start required systemd services
+
     - name: Enable and start linstor-satellite service
       ansible.builtin.systemd:
         daemon_reload: true
