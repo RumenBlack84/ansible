@@ -9,16 +9,21 @@ all:
           intel_sriov: true
           zfsiscsi: true
           linstor: true
-          linstor_disks: false
-          linstor_controller: true
-          linstor_controller_priority: 100
         Vanir:
           ansible_host: 192.168.0.6
           cmk_folder: '/LAN'
           connectx: true
           zfsiscsi: true
           linstor: true
+        Ennead:
+          ansible_host: 192.168.0.8
+          cmk_folder: '/LAN'
+          connectx: true
+          linstor: true
           linstor_controller: true
+          linstor_controller_priority: 100
+          linstor_disks: true
+          linstor_initial_controller: true
     ubuntu_vms:
       hosts:
         # AI Docker host
