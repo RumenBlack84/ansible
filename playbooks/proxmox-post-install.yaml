@@ -1,6 +1,6 @@
 ---
 - name: Run Proxmox VE Post Install Process
-  hosts: all
+  hosts: proxmox
   become: true
   vars_files:
     - vault/vault.yaml
