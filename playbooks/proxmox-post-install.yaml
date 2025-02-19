@@ -1,7 +1,6 @@
 ---
 - name: Run Proxmox VE Post Install Process
   hosts: proxmox
-  become: true
   vars_files:
     - vault/vault.yaml
   vars:
@@ -77,26 +76,6 @@
     - name: Run bootctl status to check for systemd-boot
       ansible.builtin.command: nala fetch --auto
       changed_when: true
-
-    - name: Set apt aliases to Nala instead (at least for root)
-      ansible.builtin.blockinfile:
-        path: /root/.bashrc
-        marker: "# {mark} Ansible managed block for custom functions"
-        block: |
-          apt() {
-            command nala "$@"
-          }
-          sudo() {
-            if [ "$1" = "apt" ]; then
-              shift
-              command sudo nala "$@"
-            else
-              command sudo "$@"
-            fi
-          }
-        owner: root
-        group: root
-        mode: '0644'
 
     - name: Install oh my posh and cli enhancements
       ansible.builtin.include_tasks: tasks/oh-my-posh.yaml

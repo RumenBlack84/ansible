@@ -43,7 +43,6 @@
 - name: Install oh my posh
   ansible.builtin.shell: >
     set -o pipefail && curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
-  register: latest_tag
   changed_when: false
 
 # Fast fetch installation and update
@@ -94,8 +93,12 @@
 - name: Get latest tag from GitHub API
   ansible.builtin.shell: >
     set -o pipefail && curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/tags" | jq -r '.[0].name'
-  register: latest_tag
+  register: latest_tag_raw
   changed_when: false
+
+- name: Set latest_tag as a clean string
+  ansible.builtin.set_fact:
+    latest_tag: "{{ latest_tag_raw.stdout | trim }}"
 
 - name: Get Current Version if any
   ansible.builtin.slurp:
@@ -109,7 +112,7 @@
 
 - name: Debug the latest tag
   ansible.builtin.debug:
-    msg: "Latest tag is {{ latest_tag.stdout }}"
+    msg: "Latest tag is {{ latest_tag }}"
 
 - name: Debug the meslo_ver
   ansible.builtin.debug:

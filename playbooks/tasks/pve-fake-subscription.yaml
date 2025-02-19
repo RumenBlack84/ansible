@@ -12,7 +12,14 @@
 
 - name: Get installed pve-fake-subscription version
   ansible.builtin.set_fact:
-    sub_ver: "{{ (ansible_facts.packages['pve-fake-subscription'][0].version if 'pve-fake-subscription' in ansible_facts.packages else 'not_installed') | string }}"
+    sub_ver: >-
+      {{
+        (ansible_facts.packages['pve-fake-subscription'][0].version
+        if 'pve-fake-subscription' in ansible_facts.packages
+        else 'not_installed')
+        | string
+      }}
+
 
 - name: Debug sub_ver
   ansible.builtin.debug:
@@ -21,8 +28,12 @@
 - name: Get latest tag from GitHub API
   ansible.builtin.shell: >
     set -o pipefail && curl -s "https://api.github.com/repos/Jamesits/pve-fake-subscription/tags" | jq -r '.[0].name'
-  register: latest_tag
+  register: latest_tag_raw
   changed_when: false
+
+- name: Set latest_tag as a clean string
+  ansible.builtin.set_fact:
+    latest_tag: "{{ latest_tag_raw.stdout | trim }}"
 
 - name: Debug the latest tag
   ansible.builtin.debug:
