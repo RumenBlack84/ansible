@@ -22,11 +22,11 @@
 
 - name: Debug the latest tag
   ansible.builtin.debug:
-    msg: "Latest tag is {{ latest_tag.stdout }}"
+    msg: "Latest tag is {{ latest_tag }}"
 
 - name: Set a fact with cleaned version
   ansible.builtin.set_fact:
-    latest_clean_tag: "{{ latest_tag.stdout | regex_replace('^v', '') }}"
+    latest_clean_tag: "{{ latest_tag | regex_replace('^v', '') }}"
 
 - name: Download the latest release
   ansible.builtin.get_url:

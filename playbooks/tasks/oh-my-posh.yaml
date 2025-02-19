@@ -60,7 +60,7 @@
 
 - name: Debug the latest tag
   ansible.builtin.debug:
-    msg: "Latest tag is {{ latest_tag.stdout }}"
+    msg: "Latest tag is {{ latest_tag }}"
 
 - name: Get installed fastfetch version
   ansible.builtin.set_fact:
@@ -77,8 +77,8 @@
 
 - name: Download the latest release
   ansible.builtin.get_url:
-    url: https://github.com/fastfetch-cli/fastfetch/releases/download/{{ latest_tag }}/fastfetch-linux-amd64.deb
-    dest: /tmp/fastfetch-linux-amd64.deb
+    url: "https://github.com/fastfetch-cli/fastfetch/releases/download/{{ latest_tag | string }}/fastfetch-linux-amd64.deb"
+    dest: "/tmp/fastfetch-linux-amd64.deb"
     owner: root
     group: root
     mode: '0644'
