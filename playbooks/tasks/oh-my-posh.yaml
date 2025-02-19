@@ -9,11 +9,6 @@
     name: unzip
     state: present
 
-- name: Ensure zsh dependancy is installed
-  ansible.builtin.apt:
-    name: zsh
-    state: present
-
 - name: Set bashrc file for root
   ansible.builtin.blockinfile:
     path: /root/.bashrc
