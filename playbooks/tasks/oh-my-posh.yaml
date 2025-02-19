@@ -104,6 +104,7 @@
   ansible.builtin.slurp:
     src: /usr/share/fonts/meslo.ver
   register: file_content
+  failed_when: false
 
 
 - name: Get Current Version if any
