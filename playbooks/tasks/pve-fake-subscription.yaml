@@ -14,6 +14,9 @@
   ansible.builtin.set_fact:
     sub_ver: "{{ (ansible_facts.packages['pve-fake-subscription'][0].version if 'pve-fake-subscription' in ansible_facts.packages else 'not_installed') | string }}"
 
+- name: Debug sub_ver
+  ansible.builtin.debug:
+    msg: "Installed version: {{ sub_ver }}"
 
 - name: Get latest tag from GitHub API
   ansible.builtin.shell: >
@@ -28,6 +31,10 @@
 - name: Set a fact with cleaned version
   ansible.builtin.set_fact:
     latest_clean_tag: "{{ latest_tag | regex_replace('^v', '') }}"
+
+- name: Debug latest_clean_tag
+  ansible.builtin.debug:
+    msg: "Latest version: {{ latest_clean_tag }}"
 
 - name: Download the latest release
   ansible.builtin.get_url:
