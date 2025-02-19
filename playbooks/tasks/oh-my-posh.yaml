@@ -14,9 +14,9 @@
     name: zsh
     state: present
 
-- name: Set zshrc file for root
+- name: Set bashrc file for root
   ansible.builtin.blockinfile:
-    path: /root/.zshrc
+    path: /root/.bashrc
     marker: "# {mark} Ansible managed block for custom functions"
     block: |
       apt() {
@@ -30,12 +30,20 @@
           command sudo "$@"
         fi
       }
-      eval "$(oh-my-posh init zsh)"
+      eval "$(oh-my-posh init bash)"
       alias neofetch=fastfetch
       neofetch
     owner: root
     group: root
     mode: '0644'
+
+# Install oh my posh
+
+- name: Install oh my posh
+  ansible.builtin.shell: >
+    set -o pipefail && curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
+  register: latest_tag
+  changed_when: false
 
 # Fast fetch installation and update
 

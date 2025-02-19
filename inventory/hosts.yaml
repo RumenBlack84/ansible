@@ -4,6 +4,7 @@ all:
       hosts:
         Aesir:
           ansible_host: 192.168.0.5
+          ansible_user: root
           cmk_folder: '/LAN'
           connectx: true
           intel_sriov: true
@@ -11,12 +12,14 @@ all:
           linstor: true
         Vanir:
           ansible_host: 192.168.0.6
+          ansible_user: root
           cmk_folder: '/LAN'
           connectx: true
           zfsiscsi: true
           linstor: true
         Ennead:
           ansible_host: 192.168.0.8
+          ansible_user: root
           cmk_folder: '/LAN'
           connectx: true
           linstor: true
