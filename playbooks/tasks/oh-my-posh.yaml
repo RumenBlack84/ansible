@@ -118,10 +118,12 @@
 - name: Debug the meslo_ver
   ansible.builtin.debug:
     msg: "Current Version is {{ meslo_ver }}"
+  when: file_content is defined and file_content.content is defined
 
 - name: Check if meslo font needs updating
   ansible.builtin.set_fact:
     meslo_update_required: "{{ meslo_ver != latest_tag }}"
+  when: file_content is defined and file_content.content is defined
 
 - name: Download the latest release
   ansible.builtin.get_url:
