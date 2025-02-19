@@ -57,7 +57,7 @@
   ansible.builtin.debug:
     msg: "Fastfetch installed version: {{ fastfetch_installed_version }}"
 
-- name: Check if Checkmk agent needs updating
+- name: Check if fastfetch needs updating
   ansible.builtin.set_fact:
     fastfetch_update_required: "{{ fastfetch_installed_version != latest_tag }}"
   when: fastfetch_installed_version != 'not_installed'
@@ -102,7 +102,7 @@
   ansible.builtin.debug:
     msg: "Current Version is {{ meslo_ver }}"
 
-- name: Check if Checkmk agent needs updating
+- name: Check if meslo font needs updating
   ansible.builtin.set_fact:
     meslo_update_required: "{{ meslo_ver != latest_tag }}"
 
