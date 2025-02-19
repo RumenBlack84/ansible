@@ -127,7 +127,7 @@
 
 - name: Download the latest release
   ansible.builtin.get_url:
-    url: "https://github.com/ryanoasis/nerd-fonts/releases/download/${{ latest_tag }}/Meslo.tar.xz"
+    url: "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ latest_tag }}/Meslo.tar.xz"
     dest: /tmp/Meslo.tar.xz"
     owner: root
     group: root
