@@ -51,8 +51,12 @@
 - name: Get latest tag from GitHub API
   ansible.builtin.shell: >
     set -o pipefail && curl -s "https://api.github.com/repos/fastfetch-cli/fastfetch/tags" | jq -r '.[0].name'
-  register: latest_tag
+  register: latest_tag_raw
   changed_when: false
+
+- name: Set latest_tag as a clean string
+  ansible.builtin.set_fact:
+    latest_tag: "{{ latest_tag_raw.stdout | trim }}"
 
 - name: Debug the latest tag
   ansible.builtin.debug:
