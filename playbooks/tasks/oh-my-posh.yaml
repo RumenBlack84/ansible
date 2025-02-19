@@ -9,6 +9,12 @@
     name: unzip
     state: present
 
+- name: Ensure jq dependancy is installed
+  ansible.builtin.apt:
+    name: jq
+    state: present
+    update_cache: true
+
 - name: Set bashrc file for root
   ansible.builtin.blockinfile:
     path: /root/.bashrc

@@ -4,6 +4,12 @@
   ansible.builtin.package_facts:
     manager: auto
 
+- name: Ensure jq dependancy is installed
+  ansible.builtin.apt:
+    name: jq
+    state: present
+    update_cache: true
+
 - name: Get installed pve-fake-subscription version
   ansible.builtin.set_fact:
     sub_ver: "{{ ansible_facts.packages['pve-fake-subscription'][0].version if 'pve-fake-subscription' in ansible_facts.packages else 'not_installed' }}"
