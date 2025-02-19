@@ -106,11 +106,10 @@
   register: file_content
   failed_when: false
 
-
 - name: Get Current Version if any
   ansible.builtin.set_fact:
     meslo_ver: "{{ file_content.content | b64decode | trim }}"
-  failed_when: false
+  when: file_content is defined and file_content.content is defined
 
 - name: Debug the latest tag
   ansible.builtin.debug:
