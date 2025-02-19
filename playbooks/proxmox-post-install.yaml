@@ -74,7 +74,7 @@
         update_cache: true
 
     - name: Update nala mirrors
-      ansible.builtin.command: nala fetch --auto
+      ansible.builtin.command: nala fetch --auto -y
       changed_when: false
 
     - name: Install oh my posh and cli enhancements
