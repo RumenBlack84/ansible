@@ -110,6 +110,7 @@
 - name: Get Current Version if any
   ansible.builtin.set_fact:
     meslo_ver: "{{ file_content.content | b64decode | trim }}"
+  failed_when: false
 
 - name: Debug the latest tag
   ansible.builtin.debug:
