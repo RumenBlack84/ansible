@@ -12,7 +12,8 @@
 
 - name: Get installed pve-fake-subscription version
   ansible.builtin.set_fact:
-    sub_ver: "{{ ansible_facts.packages['pve-fake-subscription'][0].version if 'pve-fake-subscription' in ansible_facts.packages else 'not_installed' }}"
+    sub_ver: "{{ (ansible_facts.packages['pve-fake-subscription'][0].version if 'pve-fake-subscription' in ansible_facts.packages else 'not_installed') | string }}"
+
 
 - name: Get latest tag from GitHub API
   ansible.builtin.shell: >
@@ -39,7 +40,7 @@
 
 - name: Install the .deb package
   ansible.builtin.apt:
-    deb: /tmp/i915-sriov-dkms_{{ latest_tag }}_amd64.deb
+    deb: /tmp/pve-fake-subscription_{{ latest_clean_tag }}+git-1_all.deb
   when: "latest_clean_tag not in sub_ver"
 
 - name: Add entry to /etc/hosts
