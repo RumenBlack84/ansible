@@ -34,11 +34,11 @@
 - name: Check if Checkmk agent needs updating
   ansible.builtin.set_fact:
     checkmk_update_required: "{{ checkmk_installed_version != checkmk_version }}"
-  when: checkmk_installed_version != 'not_installed'
 
 - name: Debug update status
   ansible.builtin.debug:
     msg: "Update required: {{ checkmk_update_required }}"
+  when: checkmk_update_required | default(true) | bool
 
 - name: Download agent file from the server
   ansible.builtin.get_url:
