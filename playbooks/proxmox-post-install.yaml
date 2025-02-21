@@ -120,20 +120,30 @@
         mode: '0644'
       when: connectx | default(false) | bool
 
-    - name: Run bootctl status to check for systemd-boot
+    - name: Run bootctl status
       ansible.builtin.command: bootctl status
       register: bootctl_output
-      ignore_errors: true
       changed_when: false
+      failed_when: false
 
-    - name: Parse bootctl status output to check for systemd-boot
-      ansible.builtin.set_fact:
-        systemd_boot_enabled: "{{ 'systemd-boot not installed in ESP' not in bootctl_output.stdout }}"
-      when: bootctl_output.rc == 0
-
-    - name: Debug the result
+    - name: Debug bootctl output
       ansible.builtin.debug:
-        msg: "Systemd-boot enabled: {{ systemd_boot_enabled }}"
+        msg: "{{ bootctl_output.stdout }}"
+
+    - name: Determine if systemd-boot is enabled
+      ansible.builtin.set_fact:
+        systemd_boot_enabled: "{{ 'systemd-boot not installed in ESP' not in bootctl_output.stdout and 'No boot loader entries' not in bootctl_output.stdout }}"
+
+    - name: Fallback check for systemd-boot EFI files
+      ansible.builtin.stat:
+        path: /boot/efi/EFI/systemd/systemd-bootx64.efi
+      register: systemd_boot_stat
+      when: not systemd_boot_enabled | bool
+
+    - name: Update systemd_boot_enabled if EFI file exists
+      ansible.builtin.set_fact:
+        systemd_boot_enabled: "{{ systemd_boot_stat.stat.exists }}"
+      when: not systemd_boot_enabled | bool
 
     - name: Install kernel headers
       ansible.builtin.apt:
@@ -148,6 +158,8 @@
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"'
         backup: true
       register: grub_config
+      when: intel_sriov is not defined or not intel_sriov
+
 
     - name: Debug if GRUB config was changed # noqa: no-handler
       ansible.builtin.debug:
@@ -225,6 +237,7 @@
               or (grub_config is defined and grub_config.changed)
               or (connectx | default(false) | bool)
       register: reboot_result
+      throttle: 1
 
     - name: Notify user of reboot completion
       ansible.builtin.debug:
