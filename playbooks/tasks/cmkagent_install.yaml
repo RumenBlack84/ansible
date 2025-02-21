@@ -31,9 +31,9 @@
   ansible.builtin.debug:
     msg: "Checkmk Agent installed version: {{ checkmk_installed_version }}"
 
-- name: Check if Checkmk agent needs updating
+- name: Determine if Checkmk agent needs installation or update
   ansible.builtin.set_fact:
-    checkmk_update_required: "{{ checkmk_installed_version != checkmk_version }}"
+    checkmk_update_required: "{{ checkmk_installed_version == 'not_installed' or checkmk_installed_version != checkmk_target_version }}"
 
 - name: Debug update status
   ansible.builtin.debug:
