@@ -1,6 +1,6 @@
 ---
 - name: Run Proxmox VE Post Install Process
-  hosts: proxmox
+  hosts: "{{ target_host | default('no_match') }}"
   vars_files:
     - vault/vault.yaml
   vars:
