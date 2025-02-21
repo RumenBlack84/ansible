@@ -232,8 +232,8 @@
       ansible.builtin.reboot:
         reboot_timeout: 600  # Adjust the timeout depending on how long the system takes to reboot
         msg: "Rebooting the system now, waiting up to 600 seconds for it to be available again"
-      when: (kernel_reboot_required | bool)
-              or (systemd_boot_enabled | bool)
+      when: (kernel_reboot_required | default(false) | bool)
+              or (systemd_boot_enabled | default(false) | bool)
               or (grub_config is defined and grub_config.changed)
               or (connectx | default(false) | bool)
       register: reboot_result
