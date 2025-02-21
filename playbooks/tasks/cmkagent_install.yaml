@@ -40,19 +40,25 @@
     msg: "Update required: {{ checkmk_update_required }}"
   when: checkmk_update_required | default(true) | bool
 
-- name: Download agent file from the server
-  ansible.builtin.get_url:
-    url: https://checkmk.grant.onl/monitoring/check_mk/agents/check-mk-agent_{{ checkmk_version }}_all.deb
-    dest: /tmp/check-mk-agent_{{ checkmk_version }}_all.deb
-    owner: root
-    group: root
-    mode: '0644'
-  when: checkmk_update_required | default(true) | bool
+- name: Get list of available Checkmk agent files
+  ansible.builtin.uri:
+    url: https://checkmk.grant.onl/monitoring/check_mk/agents/
+    return_content: true
+  register: checkmk_agent_page
+  changed_when: false
 
-- name: Install the .deb package using apt
+- name: Extract the correct Checkmk agent filename
+  ansible.builtin.set_fact:
+    checkmk_agent_filename: "{{ checkmk_agent_page.content | regex_search('check-mk-agent_' + checkmk_version + '-\\d+_all.deb') }}"
+
+- name: Debug extracted Checkmk agent filename
+  ansible.builtin.debug:
+    msg: "Found agent file: {{ checkmk_agent_filename }}"
+
+- name: Install the Checkmk agent package using apt
   ansible.builtin.apt:
     state: present
-    deb: /tmp/check-mk-agent_{{ checkmk_version }}_all.deb
+    deb: "/tmp/{{ checkmk_agent_filename }}"
   when: checkmk_update_required | default(true) | bool
 
 - name: Ensure host exists before registering
