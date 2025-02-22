@@ -258,9 +258,9 @@
       ansible.builtin.include_tasks: tasks/intel_igpu_sriov.yaml
       when: (igpu_check.rc == 0)
             and (intel_sriov | default(false) | bool)
-
-    - name: Run checkmk install
-      ansible.builtin.include_tasks: tasks/cmkagent_install.yaml
+    # Disabling for now, I think I'm going to replace cmk with prometheus/grafana
+    # - name: Run checkmk install
+    #  ansible.builtin.include_tasks: tasks/cmkagent_install.yaml
 
     - name: Gather package facts
       ansible.builtin.package_facts:
