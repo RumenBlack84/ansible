@@ -5,7 +5,6 @@ all:
         Aesir:
           ansible_host: 192.168.0.5
           ansible_user: root
-          cmk_folder: '/LAN'
           connectx: true
           intel_sriov: true
           zfsiscsi: true
@@ -13,14 +12,20 @@ all:
         Vanir:
           ansible_host: 192.168.0.6
           ansible_user: root
-          cmk_folder: '/LAN'
           connectx: true
           zfsiscsi: true
           linstor: true
+        Olympian:
+          ansible_host: 192.168.0.7
+          ansible_user: root
+          connectx: true
+          linstor: true
+          linstor_controller: true
+          linstor_controller_priority: 200
+          linstor_disks: true
         Ennead:
           ansible_host: 192.168.0.8
           ansible_user: root
-          cmk_folder: '/LAN'
           connectx: true
           linstor: true
           linstor_controller: true
