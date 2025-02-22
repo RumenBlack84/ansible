@@ -11,6 +11,8 @@
     default_zfs_pool: essd
     secondary_storage_pool: BulkPool
     secondary_zfs_pool: hdd
+    vip_ip: 192.168.0.9
+    nfs_allowed_ips: "192.168.0.0/24"
   tasks:
 # This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
     - name: Download Linstor Public Repo Key
@@ -310,7 +312,7 @@
 
 # Work around for current debian issue with resource agents
 # This is currently causing an issue with iptables rules not being removed when drbd-reactors are changing hosts:
-# This was causing the VIP to fail for the DB config (192.168.0.9) in my case as the rules got left in place
+# This was causing the VIP to fail for the DB config in my case as the rules got left in place
 # Relevant issue https://github.com/LINBIT/linstor-gateway/issues/28
 # This section can be removed when this issue is resolved
     - name: Clone the resource-agents repository
@@ -349,8 +351,8 @@
 
     - name: Use linstor gateway to create HA nfs export on hdd storage pool
       ansible.builtin.command: >
-        linstor-gateway nfs create nfs 192.168.0.9/32 20T
-        --allowed-ips=192.168.0.0/24
+        linstor-gateway nfs create nfs {{ vip_ip }}/32 20T
+        --allowed-ips={{ nfs_allowed_ips }}
         --filesystem ext4
         --resource-group=RG-{{ secondary_storage_pool }}
       when: linstor_initial_controller | default(false) | bool
@@ -363,12 +365,12 @@
         block: |
           drbd: linstor_{{ default_storage_pool }}
           content images,vztmpl,snippets,rootdir
-          controller 192.168.0.9
+          controller {{ vip_ip }}
           resourcegroup RG-{{ default_storage_pool }}
 
           drbd: linstor_{{ secondary_storage_pool }}
           content images,vztmpl,snippets,rootdir
-          controller 192.168.0.9
+          controller {{ vip_ip }}
           resourcegroup RG-{{ secondary_storage_pool }}
         state: present
 
