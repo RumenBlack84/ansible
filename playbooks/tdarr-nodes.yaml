@@ -47,9 +47,6 @@
       ansible.builtin.command: nala fetch --auto -y
       changed_when: false
 
-    - name: Install oh my posh and cli enhancements
-      ansible.builtin.include_tasks: tasks/oh-my-posh.yaml
-
     - name: Install required packages
       ansible.builtin.apt:
         name:
@@ -58,8 +55,14 @@
           - libtesseract-dev
           - handbrake-cli
           - unzip
+          - curl
         state: present
         update_cache: true
+
+    - name: Install oh my posh and cli enhancements
+      ansible.builtin.include_tasks: tasks/oh-my-posh.yaml
+
+
 
     - name: Upgrade all packages
       ansible.builtin.apt:
