@@ -149,14 +149,14 @@
     - name: Copy tdarr-node service to hosts with node flag set
       ansible.builtin.copy:
         src: tdarr-configs/tdarr-node.service.j2
-        dest: /etc/systemd/system/
+        dest: /etc/systemd/system/tdarr-node.service
         mode: '0774'
       when: tdarr_node | default(false)
 
     - name: Copy tdarr-server service to hosts with node flag set
       ansible.builtin.copy:
         src: tdarr-configs/tdarr-server.service.j2
-        dest: /etc/systemd/system/
+        dest: /etc/systemd/system/tdarr-server.service
         mode: '0774'
       when: tdarr_server | default(false)
 
