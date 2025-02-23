@@ -38,6 +38,10 @@
     group: root
     mode: '0644'
 
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: apt
+
 # Install oh my posh
 
 - name: Install oh my posh
