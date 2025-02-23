@@ -1,7 +1,7 @@
 ---
 # Assumptions Before beginning
 # 1) The LXCs that are being inventoried already exist and already have bind mounts for the media directory to be /usr/lib/ocf/resource.d/heartbeat
-# 2) The permissions on said bind mount are functional so the lxc can read/write there for me that looks like the below
+# 2) The permissions on said bind mount are functional so the lxc can read/write there for me that looks like the below or use a privledged container
 #    This makes it so uid and gid 1000 are maintained externally but the rest are still jailed to uid gid 100k so if the lxc
 #    root escapes it is just the undefined user 100,001
 
