@@ -66,7 +66,7 @@
 
     - name: Ensure tdarr group exists
       ansible.builtin.group:
-        name: mygroup
+        name: tdarr
         gid: 1000
         state: present
 
@@ -74,7 +74,7 @@
       ansible.builtin.user:
         name: tdarr
         uid: 1000
-        group: mygroup
+        group: tdarr
         create_home: true
         state: present
 
