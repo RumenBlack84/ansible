@@ -9,6 +9,22 @@
     truenas_ip: 192.168.0.252
   tasks:
 # Correct VE sources
+    - name: Ensure lxc can bind uid 1000
+      ansible.builtin.lineinfile:
+        path: /etc/subuid
+        line: 'root:1000:1'
+        state: present
+        create: true
+        mode: "0644"
+
+    - name: Ensure lxc can bind gid 1000
+      ansible.builtin.lineinfile:
+        path: /etc/subgid
+        line: 'root:1000:1'
+        state: present
+        create: true
+        mode: "0644"
+
     - name: Correcting Proxmox VE Sources
       block:
         - name: Update sources.list
