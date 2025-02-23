@@ -65,7 +65,3 @@ all:
           ansible_host: 192.168.0.83
           ansible_user: root
           tdarr_node: true
-        TdarrNode04:
-          ansible_host: 192.168.0.84
-          ansible_user: root
-          tdarr_node: true
