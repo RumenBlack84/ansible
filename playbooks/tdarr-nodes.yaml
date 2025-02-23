@@ -29,6 +29,14 @@
     tdarr_server_ip: 192.168.0.80
     updater_link: "https://storage.tdarr.io/versions/2.17.01/linux_x64/Tdarr_Updater.zip"
   tasks:
+    - name: Configure apt proxy
+      ansible.builtin.lineinfile:
+        path: /etc/apt/apt.conf.d/00aptproxy
+        line: '"http://192.168.0.23:3142";'
+        state: present
+        create: true
+        mode: "0644"
+
     - name: Install Nala instead of apt
       ansible.builtin.apt:
         name: nala

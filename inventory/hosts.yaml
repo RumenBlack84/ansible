@@ -48,19 +48,19 @@ all:
           Beluga: true
     tdarr:
       hosts:
-        tdarr_server:
+        TdarrServer:
           ansible_host: 192.168.0.80
           tdarr_server: true
           tdarr_node: true
-        tdarr_node01:
+        TdarrNode01:
           ansible_host: 192.168.0.81
           tdarr_node: true
-        tdarr_node02:
+        TdarrNode02:
           ansible_host: 192.168.0.82
           tdarr_node: true
-        tdarr_node03:
+        TdarrNode03:
           ansible_host: 192.168.0.83
           tdarr_node: true
-        tdarr_node04:
+        TdarrNode04:
           ansible_host: 192.168.0.84
           tdarr_node: true
