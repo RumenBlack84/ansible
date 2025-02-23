@@ -73,10 +73,6 @@
         state: present
         update_cache: true
 
-    - name: Update nala mirrors
-      ansible.builtin.command: nala fetch --auto -y
-      changed_when: false
-
     - name: Install oh my posh and cli enhancements
       ansible.builtin.include_tasks: tasks/oh-my-posh.yaml
 

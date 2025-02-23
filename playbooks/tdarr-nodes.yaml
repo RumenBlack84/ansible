@@ -43,10 +43,6 @@
         state: present
         update_cache: true
 
-    - name: Update nala mirrors
-      ansible.builtin.command: nala fetch --auto -y
-      changed_when: false
-
     - name: Install required packages
       ansible.builtin.apt:
         name:
