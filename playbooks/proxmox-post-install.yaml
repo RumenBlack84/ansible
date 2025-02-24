@@ -87,12 +87,6 @@
       ansible.builtin.include_tasks: tasks/zfs-over-iscsi.yaml
       when: zfsiscsi | default(false) | bool
 
-    - name: Install corosync-qdevice
-      ansible.builtin.apt:
-        name: corosync-qdevice
-        state: present
-        update_cache: true
-
     - name: Install ls-iommu
       ansible.builtin.include_tasks: tasks/ls-iommu.yaml
 

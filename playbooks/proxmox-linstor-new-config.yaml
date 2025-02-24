@@ -11,7 +11,7 @@
     default_zfs_pool: essd
     secondary_storage_pool: BulkPool
     secondary_zfs_pool: hdd
-    vip_ip: 192.168.0.9
+    vip_ip: 192.168.0.4
     nfs_allowed_ips: "192.168.0.0/24"
   tasks:
 # This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
