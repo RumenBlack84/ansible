@@ -100,14 +100,15 @@
         group: tdarr
         mode: '0770'
 
-    - name: Create Tdarr node config if node flag is true
-      ansible.builtin.template:
-        src: tdarr-configs/Tdarr_Node_Config.json.j2
-        dest: /opt/Tdarr/configs/Tdarr_Node_Config.json
-        owner: tdarr
-        group: tdarr
-        mode: '0770'
-      when: tdarr_node | default(false)
+# Disabling for updates
+   # - name: Create Tdarr node config if node flag is true
+   #   ansible.builtin.template:
+   #     src: tdarr-configs/Tdarr_Node_Config.json.j2
+   #     dest: /opt/Tdarr/configs/Tdarr_Node_Config.json
+   #     owner: tdarr
+   #     group: tdarr
+   #     mode: '0770'
+   #   when: tdarr_node | default(false)
 
     - name: Create Tdarr server config if node flag is true
       ansible.builtin.template:
