@@ -36,6 +36,7 @@ all:
           ansible_host: 192.168.0.9
           ansible_user: root
           connectx: true
+          zfsiscsi: true
           linstor: true
           linstor_controller: true
           linstor_controller_priority: 50
