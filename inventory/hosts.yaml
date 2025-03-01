@@ -9,12 +9,13 @@ all:
           intel_sriov: true
           zfsiscsi: true
           linstor: true
-        Vanir:
-          ansible_host: 192.168.0.6
-          ansible_user: root
-          connectx: true
-          zfsiscsi: true
-          linstor: true
+        # Possibly decom?
+        # Vanir:
+        #  ansible_host: 192.168.0.6
+        #  ansible_user: root
+        #  connectx: true
+        #  zfsiscsi: true
+        #  linstor: true
         Olympian:
           ansible_host: 192.168.0.7
           ansible_user: root
@@ -22,8 +23,8 @@ all:
           zfsiscsi: true
           linstor: true
           linstor_controller: true
-          linstor_controller_priority: 200
-          linstor_disks: true
+          linstor_controller_priority: 100
+          linstor_disks: false # make true later when it has the needed disks?
         Ennead:
           ansible_host: 192.168.0.8
           ansible_user: root
@@ -31,7 +32,7 @@ all:
           zfsiscsi: true
           linstor: true
           linstor_controller: true
-          linstor_controller_priority: 100
+          linstor_controller_priority: 200
           linstor_disks: true
           linstor_initial_controller: true
         Ogdoad:
@@ -40,8 +41,6 @@ all:
           connectx: true
           zfsiscsi: true
           linstor: true
-          linstor_controller: true
-          linstor_controller_priority: 50
     ubuntu_vms:
       hosts:
         # AI Docker host

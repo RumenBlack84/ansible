@@ -1,6 +1,6 @@
 ---
 - name: Run Proxmox VE Post Install Process
-  hosts: "{{ target_host | default('no_match') }}"
+  hosts: proxmox
   become: true
   vars_files:
     - vault/vault.yaml
@@ -13,7 +13,12 @@
     secondary_zfs_pool: hdd
     vip_ip: 192.168.0.4
     nfs_allowed_ips: "192.168.0.0/24"
+    placecount: 1 # 1 for migration where only 1 node has disks
   tasks:
+    - name: Check if this host should even have this run
+      ansible.builtin.meta: end_host
+      when: not (linstor | default(false) | bool)
+
 # This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
     - name: Download Linstor Public Repo Key
       ansible.builtin.get_url:
@@ -37,7 +42,7 @@
         group: root
         mode: '0644'
 
-    - name: Install required LINSTOR and related packages
+    - name: Install required LINSTOR and related packages on the controller nodes
       ansible.builtin.apt:
         name:
           - pve-headers
@@ -58,6 +63,25 @@
           - jq
         state: present
         update_cache: true
+      when: linstor_controller | default(false) | bool
+
+    - name: Install required LINSTOR and related packages on the satelite nodes
+      ansible.builtin.apt:
+        name:
+          - pve-headers
+          - drbd-dkms
+          - drbd-utils
+          - linstor-satellite
+          - linstor-client
+          - linstor-proxmox
+          - targetcli-fb
+          - git
+          - golang
+          - linstor-gui
+          - jq
+        state: present
+        update_cache: true
+      when: not (linstor_controller | default(false) | bool)
 
     - name: Enable and start linstor-satellite service on all nodes
       ansible.builtin.systemd:
@@ -93,8 +117,12 @@
 # Same thing here add logic to check if it exsits first before running later on
 
     - name: Create a resource group, run command only on controller node
-      ansible.builtin.command:
-        cmd: "linstor resource-group create RG-{{ default_storage_pool }} --place-count 2 --storage-pool {{ default_storage_pool }}"
+      ansible.builtin.command: >
+          linstor resource-group create
+          RG-{{ default_storage_pool }}
+          --place-count {{ placecount }}
+          --diskless-on-remaining true
+          --storage-pool {{ default_storage_pool }}
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
@@ -117,8 +145,12 @@
 # Same thing here add logic to check if it exsits first before running later on
 
     - name: Create a resource group, run command only on controller node
-      ansible.builtin.command:
-        cmd: "linstor resource-group create RG-{{ secondary_storage_pool }} --place-count 2 --storage-pool {{ secondary_storage_pool }}"
+      ansible.builtin.command: >
+          linstor resource-group create
+          RG-{{ secondary_storage_pool }}
+          --place-count {{ placecount }}
+          --diskless-on-remaining true
+          --storage-pool {{ secondary_storage_pool }}
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
@@ -138,7 +170,7 @@
       ansible.builtin.command: >
         linstor resource-group create
         --storage-pool {{ default_storage_pool }}
-        --place-count 2
+        --place-count {{ placecount }}
         --diskless-on-remaining true
         linstor-db-grp
       when: linstor_initial_controller | default(false) | bool
