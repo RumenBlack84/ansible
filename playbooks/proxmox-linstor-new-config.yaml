@@ -96,6 +96,10 @@
         state: started
       when: linstor_initial_controller | default(false) | bool
 
+    - name: Debug Proxmox group members
+      ansible.builtin.debug:
+        var: groups['proxmox']
+
     - name: Filter Proxmox hosts that should be registered
       ansible.builtin.set_fact:
         proxmox_hosts_to_register: "{{ groups['proxmox'] | selectattr('linstor', 'defined') | selectattr('linstor', 'equalto', true) | list }}"
