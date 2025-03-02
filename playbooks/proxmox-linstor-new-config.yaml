@@ -147,7 +147,7 @@
 
     - name: Create a volume-group, run command only on controller node
       ansible.builtin.command:
-        cmd: "linstor volume-group create VG-{{ default_storage_pool }}"
+        cmd: "linstor volume-group create RG-{{ default_storage_pool }}"
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
