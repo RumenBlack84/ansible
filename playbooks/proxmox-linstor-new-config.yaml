@@ -130,14 +130,15 @@
       ansible.builtin.set_fact:
         linstor_registered_nodes: >-
           {{ linstor_node_list_raw.stdout_lines
-             | select('match', '^[|] [A-Za-z0-9.-]+ ')
-            | map('regex_replace', '^[|] ([A-Za-z0-9.-]+) .*', '\\1')
+            | select('search', '^\| (\S+)')
+            | map('regex_replace', '^\| (\S+).*', '\1')
             | list }}
       when: (linstor_initial_controller | default(false) | bool)
 
     - name: Debug the list of Proxmox hosts to register
       ansible.builtin.debug:
         var: linstor_registered_nodes
+      when: (linstor_initial_controller | default(false) | bool)
 
     - name: Remove already registered nodes from dictionary
       ansible.builtin.set_fact:
@@ -147,6 +148,7 @@
     - name: Debug the list of Proxmox hosts to register
       ansible.builtin.debug:
         var: proxmox_hosts_to_register
+      when: (linstor_initial_controller | default(false) | bool)
 
     - name: Register Proxmox hosts with LINSTOR
       ansible.builtin.command:
