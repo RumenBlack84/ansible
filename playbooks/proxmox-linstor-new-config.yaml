@@ -121,6 +121,11 @@
       when: linstor_initial_controller | default(false) | bool
       changed_when: false
 
+    - name: Debug LINSTOR node list output
+      ansible.builtin.debug:
+        var: linstor_node_list_raw.stdout
+      when: (linstor_initial_controller | default(false) | bool)
+
     - name: Remove already registered nodes from dictionary
       ansible.builtin.set_fact:
         proxmox_hosts_to_register: "{{ proxmox_hosts_to_register | dict2items | rejectattr('key', 'search', linstor_node_list_raw.stdout) | list | items2dict }}"
