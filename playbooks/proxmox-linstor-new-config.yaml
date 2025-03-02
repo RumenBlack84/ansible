@@ -102,7 +102,7 @@
     - name: Register Proxmox hosts with LINSTOR, run the commands only on controller node
       ansible.builtin.command:
         cmd: "linstor node create {{ item }} {{ hostvars[item].ansible_host }}"
-      loop: "{{ groups['proxmox'] | select('match', hostvars.keys()) | selectattr('linstor', 'defined') | selectattr('linstor', 'equalto', true) | list }}"
+      loop: "{{ groups['proxmox'] | select('match', hostvars.keys() | list) | selectattr('linstor', 'defined') | selectattr('linstor', 'equalto', true) | list }}"
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
