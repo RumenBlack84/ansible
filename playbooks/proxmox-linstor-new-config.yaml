@@ -96,15 +96,23 @@
         state: started
       when: linstor_initial_controller | default(false) | bool
 
+    - name: Filter Proxmox hosts that should be registered
+      ansible.builtin.set_fact:
+        proxmox_hosts_to_register: "{{ groups['proxmox'] | selectattr('linstor', 'defined') | selectattr('linstor', 'equalto', true) | list }}"
+
+    - name: Debug the list of Proxmox hosts to register
+      ansible.builtin.debug:
+        var: proxmox_hosts_to_register
+
 # I should probally add a section here to check first if the node is already a part of the linstor cluster with the linstor node list command:
 # However I'm doing this before having the software installed so it'll have to be added later.
 
-    - name: Register Proxmox hosts with LINSTOR, run the commands only on controller node
+    - name: Register nodes with LINSTOR
       ansible.builtin.command:
         cmd: "linstor node create {{ item }} {{ hostvars[item].ansible_host }}"
-      loop: "{{ groups['proxmox'] | list | selectattr('linstor', 'defined') | selectattr('linstor', 'equalto', true) | list }}"
+      loop: "{{ hostvars[inventory_hostname].proxmox_hosts_to_register | default([]) }}"
       when: linstor_initial_controller | default(false) | bool
-      changed_when: false
+      changed_when: false  # Remove once additional logic is added
 
 # Same thing here add logic to check if it exsits first before running later on
 
