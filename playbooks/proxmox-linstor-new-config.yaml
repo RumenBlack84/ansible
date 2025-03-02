@@ -100,9 +100,17 @@
       ansible.builtin.debug:
         var: groups['proxmox']
 
-    - name: Filter Proxmox hosts that should be registered
+    - name: Gather Proxmox hosts with LINSTOR enabled
       ansible.builtin.set_fact:
-        proxmox_hosts_to_register: "{{ groups['proxmox'] | selectattr('linstor', 'defined') | selectattr('linstor', 'equalto', true) | list }}"
+        proxmox_hosts_to_register: >-
+          {{ dict(
+              groups['proxmox']
+              | select('in', hostvars.keys())
+              | selectattr('linstor', 'defined')
+              | selectattr('linstor', 'bool')
+              | map('extract', hostvars, 'ansible_host')
+              | zip(groups['proxmox'])
+          ) }}
 
     - name: Debug the list of Proxmox hosts to register
       ansible.builtin.debug:
