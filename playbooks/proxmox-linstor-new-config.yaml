@@ -135,6 +135,10 @@
             | list }}
       when: (linstor_initial_controller | default(false) | bool)
 
+    - name: Debug the list of Proxmox hosts to register
+      ansible.builtin.debug:
+        var: linstor_registered_nodes
+
     - name: Remove already registered nodes from dictionary
       ansible.builtin.set_fact:
         proxmox_hosts_to_register: "{{ proxmox_hosts_to_register | dict2items | rejectattr('key', 'in', linstor_registered_nodes) | list | items2dict }}"
