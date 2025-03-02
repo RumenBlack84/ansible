@@ -116,12 +116,12 @@
 # I should probally add a section here to check first if the node is already a part of the linstor cluster with the linstor node list command:
 # However I'm doing this before having the software installed so it'll have to be added later.
 
-    - name: Register nodes with LINSTOR
+    - name: Register Proxmox hosts with LINSTOR
       ansible.builtin.command:
-        cmd: "linstor node create {{ item }} {{ hostvars[item].ansible_host }}"
-      loop: "{{ hostvars[inventory_hostname].proxmox_hosts_to_register | default([]) }}"
+        cmd: "linstor node create {{ item.key }} {{ item.value }}"
+      loop: "{{ proxmox_hosts_to_register | dict2items }}"
       when: linstor_initial_controller | default(false) | bool
-      changed_when: false  # Remove once additional logic is added
+      changed_when: false
 
 # Same thing here add logic to check if it exsits first before running later on
 
