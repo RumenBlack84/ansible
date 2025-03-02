@@ -110,7 +110,7 @@
 
     - name: Create storage pool on top on ZFS on the disk'd nodes only
       ansible.builtin.command:
-        cmd: "linstor storage-pool create zfs-thin {{ inventory_hostname }} {{ default_storage_pool }} {{ default_zfs_pool }}"
+        cmd: "linstor storage-pool create zfsthin {{ inventory_hostname }} {{ default_storage_pool }} {{ default_zfs_pool }}"
       when: linstor_disks | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
@@ -138,7 +138,7 @@
 
     - name: Create Secondary storage pool for nfs share on hdd pool on top on ZFS on the disk'd nodes only
       ansible.builtin.command:
-        cmd: "linstor storage-pool create zfs-thin {{ inventory_hostname }} {{ secondary_storage_pool }} {{ secondary_zfs_pool }}"
+        cmd: "linstor storage-pool create zfsthin {{ inventory_hostname }} {{ secondary_storage_pool }} {{ secondary_zfs_pool }}"
       when: linstor_disks | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
