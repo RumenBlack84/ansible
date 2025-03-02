@@ -135,7 +135,7 @@
             | list }}
       when: (linstor_initial_controller | default(false) | bool)
 
-    - name: Debug the list of Proxmox hosts to register
+    - name: Debug the variable
       ansible.builtin.debug:
         var: linstor_registered_nodes
       when: (linstor_initial_controller | default(false) | bool)
@@ -145,7 +145,7 @@
         proxmox_hosts_to_register: "{{ proxmox_hosts_to_register | dict2items | rejectattr('key', 'in', linstor_registered_nodes) | list | items2dict }}"
       when: (linstor_initial_controller | default(false) | bool)
 
-    - name: Debug the list of Proxmox hosts to register
+    - name: Debug the variable
       ansible.builtin.debug:
         var: proxmox_hosts_to_register
       when: (linstor_initial_controller | default(false) | bool)
@@ -159,12 +159,48 @@
         - proxmox_hosts_to_register | length > 0  # ✅ Skip if empty
       changed_when: false
 
-# Same thing here add logic to check if it exsits first before running later on
+    - name: Get list of storage pools for this node
+      ansible.builtin.command: "linstor storage-pool list -n {{ inventory_hostname }} -p"
+      register: linstor_storage_pool_raw
+      changed_when: false
+      when: (linstor_disks | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_storage_pool_raw
+      when: (linstor_disks | default(false) | bool)
+
+    - name: Extract storage pool names
+      ansible.builtin.set_fact:
+        linstor_existing_pools: >-
+          {{ linstor_storage_pool_raw.stdout_lines
+            | select('search', '^[|] \S+')
+            | map('regex_replace', '^[|] (\S+).*', '\1')
+            | list }}
+      when: (linstor_disks | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_existing_pools
+      when: (linstor_disks | default(false) | bool)
+
+    - name: Get list of storage pools for this node
+      ansible.builtin.command: "linstor storage-pool list -n {{ inventory_hostname }} -p"
+      register: linstor_storage_pool_raw
+      changed_when: false
+      when: (linstor_disks | default(false) | bool)
+
+    - name: Determine if storage pool needs to be created
+      ansible.builtin.set_fact:
+        create_storage_pool: "{{ default_storage_pool not in linstor_existing_pools }}"
+      when: (linstor_disks | default(false) | bool)
 
     - name: Create storage pool on top on ZFS on the disk'd nodes only
       ansible.builtin.command:
         cmd: "linstor storage-pool create zfsthin {{ inventory_hostname }} {{ default_storage_pool }} {{ default_zfs_pool }}"
-      when: linstor_disks | default(false) | bool
+      when:
+        - create_storage_pool | default(false) | bool
+        - linstor_disks | default(false) | bool
       changed_when: true # remove once additional logic has been added
 
 # Same thing here add logic to check if it exsits first before running later on
