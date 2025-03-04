@@ -1,4 +1,11 @@
 ---
+- name: Debug vars passed to me
+  ansible.builtin.debug:
+    msg: |
+      item.value.pool_name is being presented as: {{ item.value.pool_name }}
+      item.value.zfs_pool is being presented as: {{ item.value.zfs_pool }}
+      item.value.placecount is being presented as: {{ item.value.placecount }}
+      item.value.resource_group_name is being presented as: {{ item.value.resource_group_name }}
 # Create Storage pool
 - name: Get list of storage pools for this node
   ansible.builtin.command: "linstor storage-pool list -n {{ inventory_hostname }} -p"
