@@ -1,5 +1,5 @@
 ---
-- name: Run Proxmox VE Post Install Process
+- name: Linstor Configuration
   hosts: proxmox
   become: true
   vars_files:
@@ -8,17 +8,14 @@
     ansible_shell_executable: /bin/bash  # Use bash as the default shell
     ansible_ssh_pipelining: true
     default_storage_pool: DfltStorPool
-    default_zfs_pool: essd
     secondary_storage_pool: BulkPool
-    secondary_zfs_pool: hdd
     vip_ip: 192.168.0.4
     nfs_allowed_ips: "192.168.0.0/24"
-    placecount: 1 # 1 for migration where only 1 node has disks
-  tasks:
+  pre_tasks:
     - name: Check if this host should even have this run
       ansible.builtin.meta: end_host
       when: not (linstor | default(false) | bool)
-
+  tasks:
 # This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
     - name: Download Linstor Public Repo Key
       ansible.builtin.get_url:
@@ -159,23 +156,52 @@
         - proxmox_hosts_to_register | length > 0  # ✅ Skip if empty
       changed_when: false
 
-#############################################
-# Need to add linstor storage role call here
-#############################################
+# Install linstor storages
+    - name: Install Linstor storages
+      ansible.builtin.include_tasks: tasks/linstor_storage.yaml
 
 # Time to make the controller DB HA following this documentation
 # https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
+    - name: Get list of resource groups
+      ansible.builtin.command: "linstor resource-group list -p"
+      register: linstor_db_grp_raw
+      changed_when: false
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_db_grp_raw
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Extract resource group names
+      ansible.builtin.set_fact:
+        linstor_db_grp: >-
+          {{ linstor_db_grp_raw.stdout_lines
+            | select('search', '^[|] \S+')
+            | map('regex_replace', '^[|] (\S+).*', '\1')
+            | list }}
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_db_grp
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Determine if resource group needs to be created
+      ansible.builtin.set_fact:
+        create_linstor_db_grp: "{{ 'linstor-db-grp' not in linstor_db_grp }}"
+      when: (linstor_initial_controller | default(false) | bool)
+
     - name: Let's make the controller HA now, starting with a place to put the DB
       ansible.builtin.command: >
         linstor resource-group create
         --storage-pool {{ default_storage_pool }}
-        --place-count {{ placecount }}
-        --diskless-on-remaining true
+        --place-count 2
         linstor-db-grp
-      when: linstor_initial_controller | default(false) | bool
-      changed_when: true # remove once additional logic has been added
-
-# Same thing here add logic to check if it exsits first before running later on
+      when:
+        - create_linstor_db_grp | bool
+        - (linstor_initial_controller | default(false) | bool)
+      changed_when: false
 
     - name: Set resource group options so it will function properly with drbd reactor
       ansible.builtin.command: >
@@ -187,23 +213,86 @@
         --on-no-data-accessible=io-error
         linstor-db-grp
       when: linstor_initial_controller | default(false) | bool
-      changed_when: true # remove once additional logic has been added
+      changed_when: false
 
-# Same thing here add logic to check if it exsits first before running later on
+    - name: Get list of volume-groups
+      ansible.builtin.command: "linstor volume-group list {{ item.resource_group_name }}"
+      register: linstor_volume_groups_raw
+      changed_when: false
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_volume_groups_raw
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Extract volume group names
+      ansible.builtin.set_fact:
+        linstor_existing_volume_groups: >-
+          {{ linstor_volume_groups_raw.stdout_lines
+            | select('search', '^[|] \S+')
+            | map('regex_replace', '^[|] (\S+).*', '\1')
+            | list }}
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_existing_volume_groups
+      when: (linstor_initial_controller | default(false) | bool)
+
+    # Just checking to see if the Storage pool name shows up in the volume groups, that should be enough though.
+    - name: Determine if volume group needs to be created
+      ansible.builtin.set_fact:
+        create_linstor_db_vol: "{{ 'linstor-db-grp' not in linstor_existing_volume_groups }}"
+      when: linstor_initial_controller | default(false) | bool
 
     - name: Create volume group we can use on our new resource
       ansible.builtin.command: >
         linstor volume-group create linstor-db-grp
-      when: linstor_initial_controller | default(false) | bool
-      changed_when: true # remove once additional logic has been added
+      when:
+        - create_linstor_db_vol | bool
+        - (linstor_initial_controller | default(false) | bool)
+      changed_when: false
 
-# Same thing here add logic to check if it exsits first before running later on
+# check if resource already exists before creating it
+    - name: Get list of resources
+      ansible.builtin.command: "linstor resource list -p"
+      register: linstor_db_resource_raw
+      changed_when: false
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_db_resource_raw
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Extract resource names
+      ansible.builtin.set_fact:
+        linstor_db_resource_exists: >-
+          {{ linstor_db_resource_raw.stdout_lines
+            | select('search', '^[|] \S+')
+            | map('regex_replace', '^[|] (\S+).*', '\1')
+            | list }}
+      when: (linstor_initial_controller | default(false) | bool)
+
+    - name: Debug the variable
+      ansible.builtin.debug:
+        var: linstor_db_resource_exists
+      when: (linstor_initial_controller | default(false) | bool)
+
+    # Just checking to see if the Storage pool name shows up in the volume groups, that should be enough though.
+    - name: Determine if volume group needs to be created
+      ansible.builtin.set_fact:
+        create_linstor_db: "{{ 'linstor_db' not in linstor_db_resource_exists }}"
+      when: (linstor_initial_controller | default(false) | bool)
 
     - name: Create a volume for our DB
       ansible.builtin.command: >
         linstor resource-group spawn-resources linstor-db-grp linstor_db 500M
-      when: linstor_initial_controller | default(false) | bool
-      changed_when: true # remove once additional logic has been added
+      when:
+        - create_linstor_db | bool
+        - (linstor_initial_controller | default(false) | bool)
+      changed_when: false
 
     - name: Disable and stop linstor-controller service on all nodes, we will be controlling it with drbd reactor later
       ansible.builtin.systemd:
@@ -260,12 +349,20 @@
       when: linstor_initial_controller | default(false) | bool
       changed_when: false
 
-    - name: Format DRBD volume with ext4
+    - name: Check if DRBD volume is already formatted
+      ansible.builtin.command: "blkid /dev/drbd/by-res/linstor_db/0"
+      register: blkid_check
+      failed_when: false
+      changed_when: false
+      ignore_errors: true
+
+    - name: Format DRBD volume with ext4 if not already formatted
       ansible.builtin.command:
         cmd: "mkfs.ext4 /dev/drbd/by-res/linstor_db/0"
-      args:
-        creates: "/dev/drbd/by-res/linstor_db/0"
-      when: linstor_initial_controller | default(false) | bool
+      when:
+        - linstor_initial_controller | default(false) | bool
+        - blkid_check.rc != 0  # Only format if `blkid` fails (no filesystem detected)
+      changed_when: false
 
     - name: Start the var-lib-linstor.mount service
       ansible.builtin.systemd:
@@ -274,12 +371,20 @@
         enabled: true
       when: linstor_initial_controller | default(false) | bool
 
-    - name: Restore LINSTOR data
+    - name: Check if LINSTOR data directory exists and is empty
+      ansible.builtin.find:
+        paths: "/var/lib/linstor"
+        hidden: true
+      register: linstor_data_check
+
+    - name: Restore LINSTOR data if directory is missing or empty
       ansible.builtin.command:
         cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor"
-      when: (ansible.builtin.stat.path == "/var/lib/linstor.orig")
-            and (linstor_initial_controller | default(false) | bool)
-      changed_when: false # only changes if the directory exists
+      when:
+        - ansible.builtin.stat.path == "/var/lib/linstor.orig"
+        - linstor_data_check.matched == 0  # Directory is empty or does not exist
+        - linstor_initial_controller | default(false) | bool
+      changed_when: false  # Only marks as changed if command runs
 
     - name: Start LINSTOR controller service
       ansible.builtin.systemd:
@@ -306,6 +411,7 @@
         owner: root
         group: root
         mode: '0644'
+      when: linstor_controller | default(false) | bool
 
     - name: Create DRBD Reactor configuration file
       ansible.builtin.template:
@@ -314,6 +420,7 @@
         owner: root
         group: root
         mode: '0644'
+      when: linstor_controller | default(false) | bool
 
     - name: Create /etc/systemd/system/linstor-satellite.service.d/ directory
       ansible.builtin.file:
@@ -339,8 +446,6 @@
         group: root
         mode: '0644'
 
-# Maybe add linstor gateway stuff in here? Will have to check.
-
 # Work around for current debian issue with resource agents
 # This is currently causing an issue with iptables rules not being removed when drbd-reactors are changing hosts:
 # This was causing the VIP to fail for the DB config in my case as the rules got left in place
@@ -351,24 +456,26 @@
         repo: 'https://github.com/ClusterLabs/resource-agents.git'
         version: main
         dest: /tmp/resource-agents
+      when: linstor_controller | default(false) | bool
     - name: Copy portblock script to /usr/lib/ocf/resource.d/heartbeat
       ansible.builtin.copy:
         src: /tmp/resource-agents/heartbeat/portblock
         dest: /usr/lib/ocf/resource.d/heartbeat/portblock
         remote_src: true
         mode: '0755'
+      when: linstor_controller | default(false) | bool
     - name: Ensure the portblock script is executable
       ansible.builtin.file:
         path: /usr/lib/ocf/resource.d/heartbeat/portblock
         mode: '0755'
         state: file
+      when: linstor_controller | default(false) | bool
 # End of workaround section
-
-# still to do, install and configure linstor-gateway
 
 # install linstor gateway
     - name: Install or Update linstor gateway
       ansible.builtin.include_tasks: tasks/install-update-linstor-gateway.yaml
+      when: linstor_controller | default(false) | bool
 
     - name: Create gateway service file
       ansible.builtin.template:
@@ -377,8 +484,9 @@
         owner: root
         group: root
         mode: '0644'
+      when: linstor_controller | default(false) | bool
 
-# Same thing here add logic to check if it exsits first before running later on
+# Add logic to check if it exsits first before running later on
 
     - name: Use linstor gateway to create HA nfs export on hdd storage pool
       ansible.builtin.command: >
@@ -406,32 +514,38 @@
         state: present
 
 # Enable and start required systemd services
-
     - name: Enable and start linstor-satellite service
       ansible.builtin.systemd:
         daemon_reload: true
         name: linstor-satellite
         enabled: true
         state: started
+
     - name: Restart linstor-satellite service just in case it was already started
       ansible.builtin.systemd:
         name: linstor-satellite
         state: restarted
+
     - name: Ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
       ansible.builtin.systemd:
         name: nfs-server
         enabled: false
         state: stopped
+
     - name: Enable and start drbd-reactor service
       ansible.builtin.systemd:
         name: drbd-reactor
         enabled: true
         state: started
+      when: linstor_controller | default(false) | bool
+
     - name: Disable and stop linstor-gateway service it will be managed by drbd-reactor
       ansible.builtin.systemd:
         name: linstor-gateway
         enabled: false
         state: stopped
+      when: linstor_controller | default(false) | bool
+
 # Enable the services that will auto reload drbd-reactor when things get changed
     - name: Copy drbd-reactor-reload.path to /etc/systemd/system/
       ansible.builtin.copy:
@@ -439,17 +553,23 @@
         dest: /etc/systemd/system/drbd-reactor-reload.path
         remote_src: true
         mode: '0644'
+      when: linstor_controller | default(false) | bool
+
     - name: Copy drbd-reactor-reload.service to /etc/systemd/system/
       ansible.builtin.copy:
         src: /usr/share/doc/drbd-reactor/examples/drbd-reactor-reload.service
         dest: /etc/systemd/system/drbd-reactor-reload.service
         remote_src: true
         mode: '0644'
+      when: linstor_controller | default(false) | bool
+
     - name: Enable and start drbd-reactor-reload.path
       ansible.builtin.systemd:
         name: drbd-reactor-reload.path
         enabled: true
         state: started
+      when: linstor_controller | default(false) | bool
+
 # Restart proxmox services in order to have our drbd storages appear
     - name: Restart Proxmox services
       ansible.builtin.systemd:

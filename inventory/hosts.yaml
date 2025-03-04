@@ -46,7 +46,7 @@ all:
           DfltStorPool:
             pool_name: DfltStorPool
             zfs_pool: essd
-            placecount: 2
+            placecount: 1
             resource_group_name: RG-DfltStorPool
           BulkPool:
             pool_name: BulkPool
