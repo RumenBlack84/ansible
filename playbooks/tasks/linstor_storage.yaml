@@ -73,7 +73,7 @@
 
 - name: Determine if resource group needs to be created
   ansible.builtin.set_fact:
-    create_resource_group: "{{ item.value.pool_name not in linstor_existing_resource_groups }}"
+    create_resource_group: "{{ item.value.resource_group_name not in linstor_existing_resource_groups }}"
   when: (linstor_initial_controller | default(false) | bool)
 
 - name: Create a resource group, run command only on controller node
