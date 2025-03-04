@@ -202,7 +202,7 @@
         --place-count 2
         linstor-db-grp
       when:
-        - create_linstor_db_grp | bool
+        - create_linstor_db_grp | default(false) | bool
         - (linstor_initial_controller | default(false) | bool)
       changed_when: false
 
@@ -253,7 +253,7 @@
       ansible.builtin.command: >
         linstor volume-group create linstor-db-grp
       when:
-        - create_linstor_db_vol | bool
+        - create_linstor_db_vol | default(false) | bool
         - (linstor_initial_controller | default(false) | bool)
       changed_when: false
 
@@ -293,7 +293,7 @@
       ansible.builtin.command: >
         linstor resource-group spawn-resources linstor-db-grp linstor_db 500M
       when:
-        - create_linstor_db | bool
+        - create_linstor_db | default(false) | bool
         - (linstor_initial_controller | default(false) | bool)
       changed_when: false
 
