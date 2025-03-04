@@ -159,6 +159,9 @@
 # Install linstor storages
     - name: Install Linstor storages
       ansible.builtin.include_tasks: tasks/linstor_storage.yaml
+      loop: "{{ linstor_pools | dict2items }}"
+      loop_control:
+        loop_var: item
 
 # Time to make the controller DB HA following this documentation
 # https://linbit.com/drbd-user-guide/linstor-guide-1_0-en/#s-linstor_ha
