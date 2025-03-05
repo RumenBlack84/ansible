@@ -80,15 +80,17 @@
         update_cache: true
       when: not (linstor_controller | default(false) | bool)
 
-# insert relevant config files onto systems
+    # insert relevant config files onto systems
+    # Configuring only initial controller right now, we will have to redo this after HA controller is ansible.builtin.setup:
+    # likely to the VIP actually
     - name: Find all LINSTOR controller hosts and store globally
       ansible.builtin.set_fact:
         proxmox_controllers_to_register: >-
           {{ groups['proxmox']
           | map('extract', hostvars)
-          | selectattr('linstor_controller', 'defined')
-          | selectattr('linstor_controller', 'equalto', true)
-          | map(attribute='inventory_hostname')
+          | selectattr('linstor_initial_controller', 'defined')
+          | selectattr('linstor_initial_controller', 'equalto', true)
+          | map(attribute='ansible_host')
           | join(', ') }}
 
     - name: Debug the list of Controller hosts to register
