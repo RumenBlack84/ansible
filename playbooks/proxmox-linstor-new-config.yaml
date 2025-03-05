@@ -400,10 +400,6 @@
         state: started
       when: linstor_initial_controller | default(false) | bool
 
-    - name: Collect LINSTOR controller nodes
-      ansible.builtin.set_fact:
-        linstor_controllers: "{{ groups['proxmox'] | select('extract', hostvars, 'linstor_controller') | select('equalto', true) | list }}"
-
     - name: Create LINSTOR client configuration file
       ansible.builtin.template:
         src: linstor-configs/linstor-client.conf.j2
