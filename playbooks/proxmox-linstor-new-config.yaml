@@ -246,7 +246,7 @@
     # Just checking to see if the Storage pool name shows up in the volume groups, that should be enough though.
     - name: Determine if volume group needs to be created
       ansible.builtin.set_fact:
-        create_linstor_db_vol: "{{ 'linstor-db-grp' not in linstor_existing_volume_groups }}"
+        create_linstor_db_vol: "{{ '0' not in linstor_existing_volume_groups }}"
       when: linstor_initial_controller | default(false) | bool
 
     - name: Create volume group we can use on our new resource
@@ -399,6 +399,20 @@
         name: linstor-controller
         state: started
       when: linstor_initial_controller | default(false) | bool
+
+    - name: Report eligible Proxmox hosts into per-host fact
+      ansible.builtin.set_fact:
+        linstor_controller_entry:
+          "{{ inventory_hostname }}"
+      when: linstor_controller | default(false) | bool
+
+    - name: Debug the list of Proxmox hosts to register
+      ansible.builtin.debug:
+        var: linstor_controller_entry
+
+    - name: Aggregate all LINSTOR hosts into a global dictionary
+      ansible.builtin.set_fact:
+        proxmox_controllers_to_register: "{{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry') | select('defined') | list | combine }}"
 
     - name: Create LINSTOR client configuration file
       ansible.builtin.template:

@@ -117,7 +117,7 @@
 # Just checking to see if the Storage pool name shows up in the volume groups, that should be enough though.
 - name: Determine if volume group needs to be created
   ansible.builtin.set_fact:
-    create_volume_group: "{{ item.value.pool_name not in linstor_existing_volume_groups }}"
+    create_volume_group: "{{ '0' not in linstor_existing_volume_groups }}"
   when: (linstor_initial_controller | default(false) | bool)
 
 - name: Create volume group if needed
