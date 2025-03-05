@@ -368,12 +368,20 @@
       register: linstor_orig_stat
       when: linstor_initial_controller | default(false) | bool
 
+    - name: Check if /var/lib/linstor is immutable
+      ansible.builtin.command:
+        cmd: "lsattr /var/lib/linstor"
+      register: linstor_lsattr
+      changed_when: false
+      when: linstor_controller | default(false) | bool
+
     - name: Move existing LINSTOR database directory on current controller node
       ansible.builtin.command:
         cmd: "mv /var/lib/linstor /var/lib/linstor.orig"
         removes: /var/lib/linstor
       when:
         - linstor_initial_controller | default(false) | bool
+        - "'--------------e------- /var/lib/linstor' not in linstor_lsattr.stdout"
         - linstor_orig_stat.stat.exists
 
     - name: Create new LINSTOR database directory on all to be controllers
@@ -383,17 +391,10 @@
         mode: '0755'
       when: linstor_controller | default(false) | bool
 
-    - name: Check if /var/lib/linstor is immutable
-      ansible.builtin.command:
-        cmd: "lsattr /var/lib/linstor"
-      register: linstor_lsattr
-      changed_when: false
-      when: linstor_controller | default(false) | bool
-
     - name: Ensure /var/lib/linstor is immutable (chattr +i)
       ansible.builtin.command:
         cmd: "chattr +i /var/lib/linstor"
-      when: ("'-------------e-- /var/lib/linstor' not in linstor_lsattr.stdout")
+      when: ("'--------------e------- /var/lib/linstor' not in linstor_lsattr.stdout")
             and (linstor_controller | default(false) | bool)
       changed_when: false
 
@@ -438,9 +439,9 @@
       ansible.builtin.command:
         cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor/"
       when:
-        - linstor_orig_stat.stat.exists
-        - linstor_data_check.matched == 0  # Ensure target directory is empty
         - linstor_initial_controller | default(false) | bool
+        - linstor_orig_stat.stat.exists | default(false) | bool
+        - linstor_data_check.matched == 0 # Ensure target directory is empty
       changed_when: false  # Only marks as changed if command runs
 
     - name: Start LINSTOR controller service
