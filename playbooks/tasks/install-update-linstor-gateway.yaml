@@ -36,5 +36,5 @@
     dest: /usr/sbin/linstor-gateway
     owner: root
     group: root
-    mode: '0644'
+    mode: '0774'
   when: "latest_tag.stdout not in installed_version"
