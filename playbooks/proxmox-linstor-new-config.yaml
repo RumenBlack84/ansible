@@ -81,23 +81,14 @@
       when: not (linstor_controller | default(false) | bool)
 
 # insert relevant config files onto systems
-    - name: Report eligible Controller hosts into per-host fact
-      ansible.builtin.set_fact:
-        linstor_controller_entry: "{{ {inventory_hostname: {}} }}"
-      when: linstor_controller | default(false) | bool
-
-    - name: Debug the list of Controller hosts to register
-      ansible.builtin.debug:
-        var: linstor_controller_entry
-
-    - name: Aggregate all LINSTOR hosts into a global string
+    - name: Find all LINSTOR controller hosts and store globally
       ansible.builtin.set_fact:
         proxmox_controllers_to_register: >-
-          {{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry')
-          | select('defined')
-          | selectattr('keys', 'defined')
-          | map('keys')
-          | flatten
+          {{ groups['proxmox']
+          | map('extract', hostvars)
+          | selectattr('linstor_controller', 'defined')
+          | selectattr('linstor_controller', 'equalto', true)
+          | map(attribute='inventory_hostname')
           | join(', ') }}
 
     - name: Debug the list of Controller hosts to register
