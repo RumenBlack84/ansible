@@ -412,11 +412,13 @@
 
     - name: Start the var-lib-linstor.mount service
       ansible.builtin.systemd:
+        daemon_reload: true
         name: var-lib-linstor.mount
         state: started
         enabled: true
       when: linstor_initial_controller | default(false) | bool
 
+# This check might not work because it will find the lost+found dir i think
     - name: Check if LINSTOR data directory exists and is empty
       ansible.builtin.find:
         paths: "/var/lib/linstor"
@@ -430,7 +432,7 @@
 
     - name: Restore LINSTOR data if directory is missing or empty
       ansible.builtin.command:
-        cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor"
+        cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor/"
       when:
         - linstor_orig_stat.stat.exists  # Correct check for directory existence
         - linstor_data_check.matched == 0  # Ensure target directory is empty
@@ -552,6 +554,7 @@
         name: nfs-server
         enabled: false
         state: stopped
+      when: linstor_controller | default(false) | bool
 
     - name: Enable and start drbd-reactor service
       ansible.builtin.systemd:
