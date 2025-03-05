@@ -15,6 +15,47 @@
     - name: Check if this host should even have this run
       ansible.builtin.meta: end_host
       when: not (linstor | default(false) | bool)
+# insert relevant config files onto systems
+    - name: Report eligible Proxmox hosts into per-host fact
+      ansible.builtin.set_fact:
+        linstor_controller_entry:
+          "{{ inventory_hostname }}"
+      when: linstor_controller | default(false) | bool
+
+    - name: Debug the list of Proxmox hosts to register
+      ansible.builtin.debug:
+        var: linstor_controller_entry
+
+    - name: Aggregate all LINSTOR hosts into a global dictionary
+      ansible.builtin.set_fact:
+        proxmox_controllers_to_register: "{{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry') | select('defined') | list | combine }}"
+
+    - name: Create LINSTOR client configuration file
+      ansible.builtin.template:
+        src: linstor-configs/linstor-client.conf.j2
+        dest: /etc/linstor/linstor-client.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create /etc/drbd-reactor.d directory
+      ansible.builtin.file:
+        path: /etc/drbd-reactor.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0644'
+      when: linstor_controller | default(false) | bool
+
+    - name: Create DRBD Reactor configuration file
+      ansible.builtin.template:
+        src: linstor-configs/linstor_db.toml.j2
+        dest: /etc/drbd-reactor.d/linstor_db.toml
+        owner: root
+        group: root
+        mode: '0644'
+      when: linstor_controller | default(false) | bool
+
   tasks:
 # This playbook is based off of https://linbit.com/blog/linstor-setup-proxmox-ve-volumes/
     - name: Download Linstor Public Repo Key
@@ -399,46 +440,6 @@
         name: linstor-controller
         state: started
       when: linstor_initial_controller | default(false) | bool
-
-    - name: Report eligible Proxmox hosts into per-host fact
-      ansible.builtin.set_fact:
-        linstor_controller_entry:
-          "{{ inventory_hostname }}"
-      when: linstor_controller | default(false) | bool
-
-    - name: Debug the list of Proxmox hosts to register
-      ansible.builtin.debug:
-        var: linstor_controller_entry
-
-    - name: Aggregate all LINSTOR hosts into a global dictionary
-      ansible.builtin.set_fact:
-        proxmox_controllers_to_register: "{{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry') | select('defined') | list | combine }}"
-
-    - name: Create LINSTOR client configuration file
-      ansible.builtin.template:
-        src: linstor-configs/linstor-client.conf.j2
-        dest: /etc/linstor/linstor-client.conf
-        owner: root
-        group: root
-        mode: '0644'
-
-    - name: Create /etc/drbd-reactor.d directory
-      ansible.builtin.file:
-        path: /etc/drbd-reactor.d
-        state: directory
-        owner: root
-        group: root
-        mode: '0644'
-      when: linstor_controller | default(false) | bool
-
-    - name: Create DRBD Reactor configuration file
-      ansible.builtin.template:
-        src: linstor-configs/linstor_db.toml.j2
-        dest: /etc/drbd-reactor.d/linstor_db.toml
-        owner: root
-        group: root
-        mode: '0644'
-      when: linstor_controller | default(false) | bool
 
     - name: Create /etc/systemd/system/linstor-satellite.service.d/ directory
       ansible.builtin.file:
