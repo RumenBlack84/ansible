@@ -605,6 +605,7 @@
 
     - name: Enable and start drbd-reactor-reload.path
       ansible.builtin.systemd:
+        daemon_reload: true
         name: drbd-reactor-reload.path
         enabled: true
         state: started
