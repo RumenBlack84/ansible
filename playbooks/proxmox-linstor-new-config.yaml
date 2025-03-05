@@ -90,10 +90,10 @@
       ansible.builtin.debug:
         var: linstor_controller_entry
 
-    - name: Aggregate all LINSTOR hosts into a global dictionary
+    - name: Aggregate all LINSTOR hosts into a global string
       ansible.builtin.set_fact:
         proxmox_controllers_to_register: >
-          "{{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry') | select('defined') | list | flatten | combine }}"
+          "{{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry') | select('defined') | map('keys') | flatten | join(', ') }}"
 
     - name: Debug the list of Controller hosts to register
       ansible.builtin.debug:
