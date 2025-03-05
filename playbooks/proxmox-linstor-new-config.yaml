@@ -92,6 +92,10 @@
           | map(attribute='inventory_hostname')
           | join(', ') }}
 
+    - name: Normalize proxmox_controllers_to_register by removing spaces
+      ansible.builtin.set_fact:
+        proxmox_controllers_to_register: "{{ proxmox_controllers_to_register.split(',') | map('trim') | join(',') }}"
+
     - name: Debug the list of Controller hosts to register
       ansible.builtin.debug:
         var: proxmox_controllers_to_register
