@@ -511,6 +511,13 @@
       when: linstor_controller | default(false) | bool
 # End of workaround section
 
+    - name: Ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
+      ansible.builtin.systemd:
+        name: nfs-server
+        enabled: false
+        state: stopped
+      when: linstor_controller | default(false) | bool
+
 # install linstor gateway
     - name: Install or Update linstor gateway
       ansible.builtin.include_tasks: tasks/install-update-linstor-gateway.yaml
@@ -564,13 +571,6 @@
       ansible.builtin.systemd:
         name: linstor-satellite
         state: restarted
-
-    - name: Ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
-      ansible.builtin.systemd:
-        name: nfs-server
-        enabled: false
-        state: stopped
-      when: linstor_controller | default(false) | bool
 
     - name: Enable and start drbd-reactor service
       ansible.builtin.systemd:
