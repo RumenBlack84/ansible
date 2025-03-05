@@ -42,7 +42,7 @@ all:
           zfsiscsi: true
           linstor: true
       vars:
-        vip_ip:
+        vip_ip: 192.168.0.4
         linstor_pools:
           DfltStorPool:
             pool_name: DfltStorPool
