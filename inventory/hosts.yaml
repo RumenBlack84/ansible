@@ -9,6 +9,7 @@ all:
           intel_sriov: true
           zfsiscsi: true
           linstor: true
+          linstor_controller: true
         # Possibly decom?
         # Vanir:
         #  ansible_host: 192.168.0.6
@@ -41,6 +42,7 @@ all:
           connectx: true
           zfsiscsi: true
           linstor: true
+          linstor_controller: true
       vars:
         vip_ip: 192.168.0.4
         linstor_pools:
