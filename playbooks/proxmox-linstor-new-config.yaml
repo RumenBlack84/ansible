@@ -9,7 +9,6 @@
     ansible_ssh_pipelining: true
     default_storage_pool: DfltStorPool
     secondary_storage_pool: BulkPool
-    vip_ip: 192.168.0.4
     nfs_allowed_ips: "192.168.0.0/24"
   pre_tasks:
     - name: Check if this host should even have this run
@@ -88,14 +87,22 @@
         proxmox_controllers_to_register: >-
           {{ groups['proxmox']
           | map('extract', hostvars)
-          | selectattr('linstor_initial_controller', 'defined')
-          | selectattr('linstor_initial_controller', 'equalto', true)
-          | map(attribute='ansible_host')
+          | selectattr('linstor_controller', 'defined')
+          | selectattr('linstor_controller', 'equalto', true)
+          | map(attribute='inventory_hostname')
           | join(', ') }}
 
     - name: Debug the list of Controller hosts to register
       ansible.builtin.debug:
         var: proxmox_controllers_to_register
+
+    - name: Prepend vip_ip to proxmox_controllers_to_register
+      ansible.builtin.set_fact:
+        template_controllers_to_register: "{{ vip_ip }},{{ proxmox_controllers_to_register }}"
+
+    - name: Debug the list of Controller hosts to register in the client conf
+      ansible.builtin.debug:
+        var: template_controllers_to_register
 
     - name: Create LINSTOR client configuration file
       ansible.builtin.template:

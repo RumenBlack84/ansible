@@ -6,7 +6,7 @@ resource = "linstor_db"
 node-max-priority = true
 
 # Define individual controller node priorities
-{% for node in proxmox_controllers_to_register %}
+{% for node in proxmox_controllers_to_register.split(', ') %}
 [[promoter.node-priority]]
 name = "{{ node }}"
 priority = {{ hostvars[node].linstor_controller_priority | default(50) }}
@@ -22,4 +22,4 @@ stop-services-on-exit = true  # Ensures services are stopped when the promoter e
 # The soft dependency ensures there's no issues on fresh cluster start as the nfs service needs the db service started somewhere to actually start
 [[promoter.resource-dependencies]]
 resource = "linstor-gateway-nfs-nfs"
-type = "hard"
+type = "soft"
