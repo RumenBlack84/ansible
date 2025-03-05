@@ -380,12 +380,17 @@
         hidden: true
       register: linstor_data_check
 
+    - name: Check if backup directory exists
+      ansible.builtin.stat:
+        path: "/var/lib/linstor.orig"
+      register: linstor_orig_stat
+
     - name: Restore LINSTOR data if directory is missing or empty
       ansible.builtin.command:
         cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor"
       when:
-        - ansible.builtin.stat.path == "/var/lib/linstor.orig"
-        - linstor_data_check.matched == 0  # Directory is empty or does not exist
+        - linstor_orig_stat.stat.exists  # Correct check for directory existence
+        - linstor_data_check.matched == 0  # Ensure target directory is empty
         - linstor_initial_controller | default(false) | bool
       changed_when: false  # Only marks as changed if command runs
 
