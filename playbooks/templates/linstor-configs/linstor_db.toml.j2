@@ -13,8 +13,8 @@ priority = {{ hostvars[node].linstor_controller_priority | default(50) }}
 {% endfor %}
 
 [promoter.resources.linstor_db]
-start = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service", "linstor-gui.service"]
-stop = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service", "linstor-gui.service"]
+start = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service"]
+stop = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service"]
 on-stop-failure = "demote"  # Possible values: "ignore", "stop", "demote"
 stop-services-on-exit = true  # Ensures services are stopped when the promoter exits
 
