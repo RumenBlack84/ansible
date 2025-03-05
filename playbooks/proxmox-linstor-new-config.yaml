@@ -219,7 +219,7 @@
       changed_when: false
 
     - name: Get list of volume-groups
-      ansible.builtin.command: "linstor volume-group list {{ item.resource_group_name }}"
+      ansible.builtin.command: "linstor volume-group list RG-{{ default_storage_pool }}"
       register: linstor_volume_groups_raw
       changed_when: false
       when: (linstor_initial_controller | default(false) | bool)
