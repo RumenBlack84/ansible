@@ -83,8 +83,7 @@
 # insert relevant config files onto systems
     - name: Report eligible Controller hosts into per-host fact
       ansible.builtin.set_fact:
-        linstor_controller_entry:
-          "{{ inventory_hostname }}": {}
+        linstor_controller_entry: "{{ {inventory_hostname: {}} }}"
       when: linstor_controller | default(false) | bool
 
     - name: Debug the list of Controller hosts to register
@@ -95,6 +94,10 @@
       ansible.builtin.set_fact:
         proxmox_controllers_to_register: >
           "{{ ansible_play_hosts | map('extract', hostvars, 'linstor_controller_entry') | select('defined') | list | flatten | combine }}"
+
+    - name: Debug the list of Controller hosts to register
+      ansible.builtin.debug:
+        var: proxmox_controllers_to_register
 
     - name: Create LINSTOR client configuration file
       ansible.builtin.template:
