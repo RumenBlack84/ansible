@@ -362,11 +362,19 @@
         mode: '0644'
       when: linstor_controller | default(false) | bool
 
+    - name: Check if backup directory exists
+      ansible.builtin.stat:
+        path: "/var/lib/linstor.orig"
+      register: linstor_orig_stat
+      when: linstor_initial_controller | default(false) | bool
+
     - name: Move existing LINSTOR database directory on current controller node
       ansible.builtin.command:
         cmd: "mv /var/lib/linstor /var/lib/linstor.orig"
         removes: /var/lib/linstor
-      when: linstor_initial_controller | default(false) | bool
+      when:
+        - linstor_initial_controller | default(false) | bool
+        - linstor_orig_stat.stat.exists
 
     - name: Create new LINSTOR database directory on all to be controllers
       ansible.builtin.file:
@@ -424,17 +432,13 @@
         paths: "/var/lib/linstor"
         hidden: true
       register: linstor_data_check
-
-    - name: Check if backup directory exists
-      ansible.builtin.stat:
-        path: "/var/lib/linstor.orig"
-      register: linstor_orig_stat
+      when: linstor_initial_controller | default(false) | bool
 
     - name: Restore LINSTOR data if directory is missing or empty
       ansible.builtin.command:
         cmd: "cp -r /var/lib/linstor.orig/* /var/lib/linstor/"
       when:
-        - linstor_orig_stat.stat.exists  # Correct check for directory existence
+        - linstor_orig_stat.stat.exists
         - linstor_data_check.matched == 0  # Ensure target directory is empty
         - linstor_initial_controller | default(false) | bool
       changed_when: false  # Only marks as changed if command runs
