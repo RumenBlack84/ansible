@@ -59,54 +59,16 @@
           - jq
         state: present
         update_cache: true
-      when: linstor_controller | default(false) | bool
-
-    - name: Install required LINSTOR and related packages on the satelite nodes
-      ansible.builtin.apt:
-        name:
-          - pve-headers
-          - drbd-dkms
-          - drbd-utils
-          - linstor-satellite
-          - linstor-client
-          - linstor-proxmox
-          - targetcli-fb
-          - git
-          - golang
-          - linstor-gui
-          - jq
-        state: present
-        update_cache: true
-      when: not (linstor_controller | default(false) | bool)
 
     # insert relevant config files onto systems
-    # Configuring only initial controller right now, we will have to redo this after HA controller is ansible.builtin.setup:
-    # likely to the VIP actually
-    - name: Find all LINSTOR controller hosts and store globally
-      ansible.builtin.set_fact:
-        proxmox_controllers_to_register: >-
-          {{ groups['proxmox']
-          | map('extract', hostvars)
-          | selectattr('linstor_controller', 'defined')
-          | selectattr('linstor_controller', 'equalto', true)
-          | map(attribute='inventory_hostname')
-          | join(', ') }}
 
-    - name: Normalize proxmox_controllers_to_register by removing spaces
+    - name: Collect LINSTOR controller nodes
       ansible.builtin.set_fact:
-        proxmox_controllers_to_register: "{{ proxmox_controllers_to_register.split(',') | map('trim') | join(',') }}"
+        linstor_controllers: "{{ groups['proxmox'] | select('extract', hostvars, 'linstor_controller') | select('equalto', true) | list }}"
 
-    - name: Debug the list of Controller hosts to register
+    - name: Debug the linstor controllers var
       ansible.builtin.debug:
-        var: proxmox_controllers_to_register
-
-    - name: Prepend vip_ip to proxmox_controllers_to_register
-      ansible.builtin.set_fact:
-        template_controllers_to_register: "{{ vip_ip }},{{ proxmox_controllers_to_register }}"
-
-    - name: Debug the list of Controller hosts to register in the client conf
-      ansible.builtin.debug:
-        var: template_controllers_to_register
+        var: linstor_controllers
 
     - name: Create LINSTOR client configuration file
       ansible.builtin.template:
@@ -123,7 +85,6 @@
         owner: root
         group: root
         mode: '0644'
-      when: linstor_controller | default(false) | bool
 
     - name: Create DRBD Reactor configuration file
       ansible.builtin.template:
@@ -132,7 +93,6 @@
         owner: root
         group: root
         mode: '0644'
-      when: linstor_controller | default(false) | bool
 
     - name: Enable and start linstor-satellite service on all nodes
       ansible.builtin.systemd:
@@ -203,7 +163,7 @@
 
     - name: Register Proxmox hosts with LINSTOR
       ansible.builtin.command:
-        cmd: "linstor node create {{ item.key }} {{ item.value }}"
+        cmd: "linstor node create --node-type combine {{ item.key }} {{ item.value }}"
       loop: "{{ proxmox_hosts_to_register | dict2items }}"
       when:
         - linstor_initial_controller | default(false) | bool
@@ -371,7 +331,6 @@
         owner: root
         group: root
         mode: '0644'
-      when: linstor_controller | default(false) | bool
 
     - name: Check if backup directory exists
       ansible.builtin.stat:
@@ -384,7 +343,6 @@
         cmd: "lsattr /var/lib/linstor"
       register: linstor_lsattr
       changed_when: false
-      when: linstor_controller | default(false) | bool
 
     - name: Move existing LINSTOR database directory on current controller node
       ansible.builtin.command:
@@ -400,7 +358,6 @@
         path: /var/lib/linstor
         state: directory
         mode: '0755'
-      when: linstor_controller | default(false) | bool
 
     - name: Ensure /var/lib/linstor is immutable (chattr +i)
       ansible.builtin.command:
@@ -495,20 +452,20 @@
         repo: 'https://github.com/ClusterLabs/resource-agents.git'
         version: main
         dest: /tmp/resource-agents
-      when: linstor_controller | default(false) | bool
+
     - name: Copy portblock script to /usr/lib/ocf/resource.d/heartbeat
       ansible.builtin.copy:
         src: /tmp/resource-agents/heartbeat/portblock
         dest: /usr/lib/ocf/resource.d/heartbeat/portblock
         remote_src: true
         mode: '0755'
-      when: linstor_controller | default(false) | bool
+
     - name: Ensure the portblock script is executable
       ansible.builtin.file:
         path: /usr/lib/ocf/resource.d/heartbeat/portblock
         mode: '0755'
         state: file
-      when: linstor_controller | default(false) | bool
+
 # End of workaround section
 
     - name: Ensure nfs-server is disabled and stopped. It will be managed by our drbd-reactor configs
@@ -516,12 +473,10 @@
         name: nfs-server
         enabled: false
         state: stopped
-      when: linstor_controller | default(false) | bool
 
 # install linstor gateway
     - name: Install or Update linstor gateway
       ansible.builtin.include_tasks: tasks/install-update-linstor-gateway.yaml
-      when: linstor_controller | default(false) | bool
 
     - name: Create gateway service file
       ansible.builtin.template:
@@ -530,7 +485,6 @@
         owner: root
         group: root
         mode: '0644'
-      when: linstor_controller | default(false) | bool
 
 # Add logic to check if it exsits first before running later on
 
@@ -542,22 +496,22 @@
         --resource-group=RG-{{ secondary_storage_pool }}
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
-
-    - name: Add LINSTOR storage configurations to storage.cfg
-      ansible.builtin.blockinfile:
-        path: /etc/pve/storage.cfg
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - LINSTOR STORAGE"
-        block: |
-          drbd: linstor_{{ default_storage_pool }}
-          content images,vztmpl,snippets,rootdir
-          controller {{ vip_ip }}
-          resourcegroup RG-{{ default_storage_pool }}
-
-          drbd: linstor_{{ secondary_storage_pool }}
-          content images,vztmpl,snippets,rootdir
-          controller {{ vip_ip }}
-          resourcegroup RG-{{ secondary_storage_pool }}
-        state: present
+# comment out for now
+#    - name: Add LINSTOR storage configurations to storage.cfg
+#      ansible.builtin.blockinfile:
+#        path: /etc/pve/storage.cfg
+#        marker: "# {mark} ANSIBLE MANAGED BLOCK - LINSTOR STORAGE"
+#        block: |
+#          drbd: linstor_{{ default_storage_pool }}
+#          content images,vztmpl,snippets,rootdir
+#          controller {{ vip_ip }}
+#          resourcegroup RG-{{ default_storage_pool }}
+#
+#          drbd: linstor_{{ secondary_storage_pool }}
+#          content images,vztmpl,snippets,rootdir
+#          controller {{ vip_ip }}
+#          resourcegroup RG-{{ secondary_storage_pool }}
+#        state: present
 
 # Enable and start required systemd services
     - name: Enable and start linstor-satellite service
@@ -577,14 +531,12 @@
         name: drbd-reactor
         enabled: true
         state: started
-      when: linstor_controller | default(false) | bool
 
     - name: Disable and stop linstor-gateway service it will be managed by drbd-reactor
       ansible.builtin.systemd:
         name: linstor-gateway
         enabled: false
         state: stopped
-      when: linstor_controller | default(false) | bool
 
 # Enable the services that will auto reload drbd-reactor when things get changed
     - name: Copy drbd-reactor-reload.path to /etc/systemd/system/
@@ -593,7 +545,6 @@
         dest: /etc/systemd/system/drbd-reactor-reload.path
         remote_src: true
         mode: '0644'
-      when: linstor_controller | default(false) | bool
 
     - name: Copy drbd-reactor-reload.service to /etc/systemd/system/
       ansible.builtin.copy:
@@ -601,7 +552,6 @@
         dest: /etc/systemd/system/drbd-reactor-reload.service
         remote_src: true
         mode: '0644'
-      when: linstor_controller | default(false) | bool
 
     - name: Enable and start drbd-reactor-reload.path
       ansible.builtin.systemd:
@@ -609,7 +559,6 @@
         name: drbd-reactor-reload.path
         enabled: true
         state: started
-      when: linstor_controller | default(false) | bool
 
 # Restart proxmox services in order to have our drbd storages appear
     - name: Restart Proxmox services

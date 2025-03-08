@@ -6,11 +6,10 @@ resource = "linstor_db"
 node-max-priority = true
 
 # Define individual controller node priorities
-{% for node in proxmox_controllers_to_register.split(', ') %}
+{% for node in linstor_controllers %}
 [[promoter.node-priority]]
 name = "{{ node }}"
 priority = {{ hostvars[node].linstor_controller_priority | default(50) }}
-{% endfor %}
 
 [promoter.resources.linstor_db]
 start = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service"]
