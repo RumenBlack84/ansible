@@ -10,6 +10,8 @@ node-max-priority = true
 [[promoter.node-priority]]
 name = "{{ node }}"
 priority = {{ hostvars[node].linstor_controller_priority | default(50) }}
+{% endfor %}
+
 
 [promoter.resources.linstor_db]
 start = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service"]
