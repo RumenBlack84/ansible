@@ -64,8 +64,13 @@
 
     - name: Collect LINSTOR controller nodes
       ansible.builtin.set_fact:
-        linstor_controllers: >-
-          {{ groups['proxmox'] | select('selectattr', 'linstor_controller', 'equalto', true, default=false) | list }}
+        linstor_controllers: []
+
+    - name: Add controllers to list
+      ansible.builtin.set_fact:
+        linstor_controllers: "{{ linstor_controllers + [item] }}"
+      loop: "{{ groups['proxmox'] }}"
+      when: hostvars[item].linstor_controller | default(false) | bool
 
     - name: Debug the linstor controllers var
       ansible.builtin.debug:
