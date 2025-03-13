@@ -7,21 +7,18 @@ all:
           ansible_user: root
           connectx: true
           intel_sriov: true
-          zfsiscsi: true
           linstor: true
           linstor_controller: true
         Vanir:
           ansible_host: 192.168.0.6
           ansible_user: root
           connectx: true
-          zfsiscsi: true
           linstor: true
           linstor_controller: true
         Olympian:
           ansible_host: 192.168.0.7
           ansible_user: root
           connectx: true
-          zfsiscsi: true
           linstor: true
           linstor_controller: true
           linstor_controller_priority: 100
@@ -30,7 +27,6 @@ all:
           ansible_host: 192.168.0.8
           ansible_user: root
           connectx: true
-          zfsiscsi: true
           linstor: true
           linstor_controller: true
           linstor_controller_priority: 200
@@ -40,7 +36,6 @@ all:
           ansible_host: 192.168.0.9
           ansible_user: root
           connectx: true
-          zfsiscsi: true
           linstor: true
           linstor_controller: true
       vars:
