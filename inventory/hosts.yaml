@@ -10,13 +10,13 @@ all:
           zfsiscsi: true
           linstor: true
           linstor_controller: true
-        # Possibly decom?
-        # Vanir:
-        #  ansible_host: 192.168.0.6
-        #  ansible_user: root
-        #  connectx: true
-        #  zfsiscsi: true
-        #  linstor: true
+        Vanir:
+          ansible_host: 192.168.0.6
+          ansible_user: root
+          connectx: true
+          zfsiscsi: true
+          linstor: true
+          linstor_controller: true
         Olympian:
           ansible_host: 192.168.0.7
           ansible_user: root
