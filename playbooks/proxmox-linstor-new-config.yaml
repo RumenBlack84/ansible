@@ -510,12 +510,12 @@
 #        marker: "# {mark} ANSIBLE MANAGED BLOCK - LINSTOR STORAGE"
 #        block: |
 #          drbd: linstor_{{ default_storage_pool }}
-#          content images,vztmpl,snippets,rootdir
+#          content images,rootdir
 #          controller {{ vip_ip }}
 #          resourcegroup RG-{{ default_storage_pool }}
 #
 #          drbd: linstor_{{ secondary_storage_pool }}
-#          content images,vztmpl,snippets,rootdir
+#          content images,rootdir
 #          controller {{ vip_ip }}
 #          resourcegroup RG-{{ secondary_storage_pool }}
 #        state: present
