@@ -106,10 +106,9 @@
         enabled: true
         state: started
 
-    - name: Enable and start linstor-controller service on the initial controller node
+    - name: Start linstor-controller service on the initial controller node
       ansible.builtin.systemd:
         name: linstor-controller
-        enabled: true
         state: started
       when: linstor_initial_controller | default(false) | bool
 
@@ -317,18 +316,18 @@
         - create_linstor_db | default(false) | bool
         - (linstor_initial_controller | default(false) | bool)
       changed_when: false
-
-    - name: Disable and stop linstor-controller service on all nodes, we will be controlling it with drbd reactor later
-      ansible.builtin.systemd:
-        name: linstor-controller
-        enabled: false
-
-    - name: Stop linstor-controller service on all nodes except the initial controller, we will be controlling it with drbd reactor later
-      ansible.builtin.systemd:
-        name: linstor-controller
-        enabled: false
-        state: stopped
-      when: (not linstor_initial_controller | default(false) | bool)
+# add back in needs some more logic, the failover it's causing is causing issues
+#    - name: Disable and stop linstor-controller service on all nodes, we will be controlling it with drbd reactor later
+#      ansible.builtin.systemd:
+#        name: linstor-controller
+#        enabled: false
+#
+#    - name: Stop and disable linstor-controller service on all nodes except the initial controller, we will be controlling it with drbd reactor later
+#      ansible.builtin.systemd:
+#        name: linstor-controller
+#        enabled: false
+#        state: stopped
+#      when: (not linstor_initial_controller | default(false) | bool)
 
     - name: Create var-lib-linstor.mount file
       ansible.builtin.copy:
@@ -363,7 +362,7 @@
         removes: /var/lib/linstor
       when:
         - linstor_initial_controller | default(false) | bool
-        - "--------------e------- /var/lib/linstor' not in linstor_lsattr.stdout"
+        - "'--------------e------- /var/lib/linstor' not in linstor_lsattr.stdout"
         - linstor_orig_stat.stat.exists
 
     - name: Create new LINSTOR database directory on all to be controllers
@@ -509,6 +508,7 @@
         --resource-group=RG-{{ secondary_storage_pool }}
       when: linstor_initial_controller | default(false) | bool
       changed_when: true # remove once additional logic has been added
+
 # comment out for now
 #    - name: Add LINSTOR storage configurations to storage.cfg
 #      ansible.builtin.blockinfile:
