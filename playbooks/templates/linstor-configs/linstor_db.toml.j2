@@ -14,13 +14,18 @@ priority = {{ hostvars[node].linstor_controller_priority | default(50) }}
 
 
 [promoter.resources.linstor_db]
-start = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service"]
-stop = ["var-lib-linstor.mount", "linstor-controller.service", "linstor-gateway.service"]
+start = [
+    "var-lib-linstor.mount", 
+    "linstor-controller.service", 
+    "linstor-gateway.service",
+    "ocf:heartbeat:IPaddr2 service_ip_db cidr_netmask=32 ip=192.168.0.4"
+    ]
+
+stop = [
+    "var-lib-linstor.mount",
+     "linstor-controller.service",
+     "linstor-gateway.service",
+     "ocf:heartbeat:IPaddr2 service_ip_db cidr_netmask=32 ip=192.168.0.4"
+     ]
 on-stop-failure = "demote"  # Possible values: "ignore", "stop", "demote"
 stop-services-on-exit = true  # Ensures services are stopped when the promoter exits
-
-# Ensures that the db follows the nfs mount as the nfs mount uses the vip configured in here.
-# The soft dependency ensures there's no issues on fresh cluster start as the nfs service needs the db service started somewhere to actually start
-[[promoter.resource-dependencies]]
-resource = "linstor-gateway-nfs-nfs"
-type = "soft"
