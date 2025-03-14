@@ -169,7 +169,7 @@
 
     - name: Register Proxmox hosts with LINSTOR
       ansible.builtin.command:
-        cmd: "linstor node create --node-type combine {{ item.key }} {{ item.value }}"
+        cmd: "linstor node create --node-type combined {{ item.key }} {{ item.value }}"
       loop: "{{ proxmox_hosts_to_register | dict2items }}"
       when:
         - linstor_initial_controller | default(false) | bool
@@ -179,7 +179,7 @@
 # Install linstor storages
     - name: Install Linstor storages
       ansible.builtin.include_tasks: tasks/linstor_storage.yaml
-      loop: "{{ linstor_pools | dict2items }}"
+      loop: "{{ hostvars[inventory_hostname].linstor_pools | default({}) | dict2items }}"
       loop_control:
         loop_var: item
 
@@ -220,6 +220,7 @@
         linstor resource-group create
         --storage-pool {{ default_storage_pool }}
         --place-count 2
+        --diskless-on-remaining
         linstor-db-grp
       when:
         - create_linstor_db_grp | default(false) | bool
@@ -496,7 +497,7 @@
 
     - name: Use linstor gateway to create HA nfs export on hdd storage pool
       ansible.builtin.command: >
-        linstor-gateway nfs create nfs {{ vip_ip }}/32 15T
+        linstor-gateway nfs create nfs {{ vip_ip }}/24 15T
         --allowed-ips={{ nfs_allowed_ips }}
         --filesystem ext4
         --resource-group=RG-{{ secondary_storage_pool }}
