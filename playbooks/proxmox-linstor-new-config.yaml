@@ -322,7 +322,6 @@
       ansible.builtin.systemd:
         name: linstor-controller
         enabled: false
-        state: stopped
 
     - name: Stop linstor-controller service on all nodes except the initial controller, we will be controlling it with drbd reactor later
       ansible.builtin.systemd:
