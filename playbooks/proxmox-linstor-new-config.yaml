@@ -324,6 +324,13 @@
         enabled: false
         state: stopped
 
+    - name: Stop linstor-controller service on all nodes except the initial controller, we will be controlling it with drbd reactor later
+      ansible.builtin.systemd:
+        name: linstor-controller
+        enabled: false
+        state: stopped
+      when: (not linstor_initial_controller | default(false) | bool)
+
     - name: Create var-lib-linstor.mount file
       ansible.builtin.copy:
         content: |
@@ -357,7 +364,7 @@
         removes: /var/lib/linstor
       when:
         - linstor_initial_controller | default(false) | bool
-        - "--------------e------- /var/lib/linstor not in linstor_lsattr.stdout"
+        - "--------------e------- /var/lib/linstor' not in linstor_lsattr.stdout"
         - linstor_orig_stat.stat.exists
 
     - name: Create new LINSTOR database directory on all to be controllers
